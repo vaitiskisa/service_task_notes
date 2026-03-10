@@ -1,3 +1,4 @@
 service_task_notes.code-workspace
 .vscode/
 build/
+data/

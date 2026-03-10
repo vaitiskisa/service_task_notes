@@ -4,7 +4,7 @@
 
 RetCode httpResponseFree(HttpResponse *response)
 {
-    RETURN_ON_COND(!response, RETCODE_COMMON_PARAM_IS_NULL);
+    RETURN_ON_COND(!response, RETCODE_COMMON_NULL_ARG);
 
     free(response->content_type);
     free(response->body);
@@ -14,5 +14,5 @@ RetCode httpResponseFree(HttpResponse *response)
     response->body_size = 0;
     response->status_code = 0;
 
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }

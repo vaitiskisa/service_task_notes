@@ -1,8 +1,7 @@
 #include "api/server.h"
 #include "api/request.h"
 #include "api/response.h"
-#include "api/helper.h"
-#include "api/common.h"
+#include "api/json_utils.h"
 
 #include <microhttpd.h>
 #include <stdlib.h>
@@ -24,19 +23,19 @@ struct HttpServer {
 
 static RetCode requestContextFree(RequestContext *ctx)
 {
-    RETURN_ON_COND(!ctx, RETCODE_COMMON_PARAM_IS_NULL);
+    RETURN_ON_COND(!ctx, RETCODE_COMMON_NULL_ARG);
 
     free(ctx->body);
     free(ctx);
 
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 static RetCode requestContextAppendBody(RequestContext *ctx, const char *data, size_t size)
 {
-    RETURN_ON_COND(!ctx, RETCODE_COMMON_PARAM_IS_NULL);
-    RETURN_ON_COND(!data, RETCODE_COMMON_PARAM_IS_NULL);
-    RETURN_ON_COND(size == 0, RETCODE_COMMON_PARAM_IS_INVALID);
+    RETURN_ON_COND(!ctx, RETCODE_COMMON_NULL_ARG);
+    RETURN_ON_COND(!data, RETCODE_COMMON_NULL_ARG);
+    RETURN_ON_COND(size == 0, RETCODE_COMMON_INVALID_ARG);
 
     if(ctx->body_size + size + 1 > ctx->body_capacity) {
         size_t new_capacity = (ctx->body_capacity == 0) ? 1024 : ctx->body_capacity;
@@ -46,7 +45,7 @@ static RetCode requestContextAppendBody(RequestContext *ctx, const char *data, s
         }
 
         char *new_body = realloc(ctx->body, new_capacity);
-        RETURN_ON_COND(!new_body, RETCODE_COMMON_ALLOC_FAIL);
+        RETURN_ON_COND(!new_body, RETCODE_COMMON_NO_MEMORY);
 
         ctx->body = new_body;
         ctx->body_capacity = new_capacity;
@@ -56,7 +55,7 @@ static RetCode requestContextAppendBody(RequestContext *ctx, const char *data, s
     ctx->body_size += size;
     ctx->body[ctx->body_size] = '\0';
 
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 static enum MHD_Result sendResponse(struct MHD_Connection *connection, const HttpResponse *response)
@@ -84,6 +83,73 @@ static const char *getQueryString(const char *url)
     return q ? (q + 1) : NULL;
 }
 
+typedef struct QueryBuilder {
+    char *buf;
+    size_t len;
+    size_t cap;
+} QueryBuilder;
+
+static enum MHD_Result queryBuilderAppend(QueryBuilder *qb, const char *key, const char *value)
+{
+    if(!qb || !key) {
+        return MHD_YES;
+    }
+
+    const char *val = value ? value : "";
+    size_t key_len = strlen(key);
+    size_t val_len = strlen(val);
+    size_t extra = key_len + (val_len ? (1 + val_len) : 0) + (qb->len ? 1 : 0) + 1;
+
+    if(qb->len + extra > qb->cap) {
+        size_t new_cap = (qb->cap == 0) ? 128 : qb->cap;
+        while(new_cap < qb->len + extra) {
+            new_cap *= 2;
+        }
+
+        char *new_buf = realloc(qb->buf, new_cap);
+        if(!new_buf) {
+            return MHD_NO;
+        }
+
+        qb->buf = new_buf;
+        qb->cap = new_cap;
+    }
+
+    if(qb->len) {
+        qb->buf[qb->len++] = '&';
+    }
+
+    memcpy(qb->buf + qb->len, key, key_len);
+    qb->len += key_len;
+
+    if(val_len) {
+        qb->buf[qb->len++] = '=';
+        memcpy(qb->buf + qb->len, val, val_len);
+        qb->len += val_len;
+    }
+
+    qb->buf[qb->len] = '\0';
+    return MHD_YES;
+}
+
+static enum MHD_Result queryValueIterator(void *cls, enum MHD_ValueKind kind, const char *key, const char *value)
+{
+    (void)kind;
+    return queryBuilderAppend((QueryBuilder *)cls, key, value);
+}
+
+static char *buildQueryString(struct MHD_Connection *connection)
+{
+    QueryBuilder qb = { 0 };
+    int count = MHD_get_connection_values(connection, MHD_GET_ARGUMENT_KIND, queryValueIterator, &qb);
+    if(count <= 0) {
+        free(qb.buf);
+        return NULL;
+    }
+
+    return qb.buf;
+}
+
 static char *extractPath(const char *url)
 {
     const char *q = strchr(url, '?');
@@ -103,7 +169,7 @@ static enum MHD_Result accessHandlerCallback(void *cls, struct MHD_Connection *c
                                              const char *method, const char *version, const char *upload_data,
                                              size_t *upload_data_size, void **con_cls)
 {
-    RetCode ret_code = RETCODE_SUCCESS;
+    RetCode ret_code = RETCODE_OK;
 
     (void)version;
 
@@ -122,7 +188,7 @@ static enum MHD_Result accessHandlerCallback(void *cls, struct MHD_Connection *c
 
     if(*upload_data_size > 0) {
         ret_code = requestContextAppendBody(ctx, upload_data, *upload_data_size);
-        if(ret_code != RETCODE_SUCCESS) {
+        if(ret_code != RETCODE_OK) {
             return MHD_NO;
         }
 
@@ -135,6 +201,10 @@ static enum MHD_Result accessHandlerCallback(void *cls, struct MHD_Connection *c
     request.url = url;
     request.path = extractPath(url);
     request.query = getQueryString(url);
+    if(!request.query) {
+        /* Fallback in case the URL does not contain a query string */
+        request.query = buildQueryString(connection);
+    }
     request.body = ctx->body;
     request.body_size = ctx->body_size;
     request.headers = NULL;
@@ -142,7 +212,7 @@ static enum MHD_Result accessHandlerCallback(void *cls, struct MHD_Connection *c
 
     if(!request.path) {
         free((void *)request.path);
-        LOG_ON_ERROR(requestContextFree(ctx), RETCODE_COMMON_FAIL);
+        LOG_ON_ERROR(requestContextFree(ctx));
         *con_cls = NULL;
         return MHD_NO;
     }
@@ -162,7 +232,10 @@ static enum MHD_Result accessHandlerCallback(void *cls, struct MHD_Connection *c
 
     httpResponseFree(&response);
     free((void *)request.path);
-    LOG_ON_ERROR(requestContextFree(ctx), RETCODE_COMMON_FAIL);
+    if(request.query && request.query != getQueryString(url)) {
+        free((void *)request.query);
+    }
+    LOG_ON_ERROR(requestContextFree(ctx));
     *con_cls = NULL;
 
     return ret;
@@ -189,31 +262,31 @@ HttpServer *httpServerCreate(const HttpServerConfig *config)
 
 RetCode httpServerStart(HttpServer *server)
 {
-    RETURN_ON_COND(!server, RETCODE_COMMON_PARAM_IS_NULL);
+    RETURN_ON_COND(!server, RETCODE_COMMON_NULL_ARG);
 
     server->daemon = MHD_start_daemon(MHD_USE_INTERNAL_POLLING_THREAD, server->port, NULL, NULL, &accessHandlerCallback,
                                       server, MHD_OPTION_END);
 
-    return (server->daemon != NULL) ? RETCODE_SUCCESS : RETCODE_COMMON_FAIL;
+    return (server->daemon != NULL) ? RETCODE_OK : RETCODE_COMMON_ERROR;
 }
 
 RetCode httpServerStop(HttpServer *server)
 {
-    RETURN_ON_COND(!server->daemon, RETCODE_COMMON_PARAM_IS_NULL);
+    RETURN_ON_COND(!server->daemon, RETCODE_COMMON_NULL_ARG);
 
     MHD_stop_daemon(server->daemon);
     server->daemon = NULL;
 
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 RetCode httpServerDestroy(HttpServer *server)
 {
-    RETURN_ON_COND(!server, RETCODE_COMMON_NEED_INIT);
+    RETURN_ON_COND(!server, RETCODE_COMMON_NOT_INITIALIZED);
 
-    RetCode ret_code = RETCODE_SUCCESS;
+    RetCode ret_code = RETCODE_OK;
 
-    LOG_ON_ERROR(httpServerStop(server), RETCODE_COMMON_FAIL);
+    LOG_ON_ERROR(httpServerStop(server));
 
     free(server);
 

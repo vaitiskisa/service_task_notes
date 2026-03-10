@@ -32,15 +32,19 @@ LDFLAGS := $(LDFLAGS) -lm -lpthread -ljansson -lmicrohttpd
 
 CFLAGS += -I/usr/include
 CFLAGS += -I$(SRC_PATH)/http
-CFLAGS += -I$(SRC_PATH)/global
+CFLAGS += -I$(SRC_PATH)/utils
 CFLAGS += -I$(SRC_PATH)/notes
 CFLAGS += -I$(SRC_PATH)/notes_repository
+CFLAGS += -I$(SRC_PATH)/service
+CFLAGS += -I$(SRC_PATH)/notes_handler
 
 CSRCS :=
 include $(SRC_PATH)/http/http.mk
-include $(SRC_PATH)/global/global.mk
+include $(SRC_PATH)/utils/utils.mk
 include $(SRC_PATH)/notes/notes.mk
 include $(SRC_PATH)/notes_repository/notes_repository.mk
+include $(SRC_PATH)/service/service.mk
+include $(SRC_PATH)/notes_handler/notes_handler.mk
 
 CSRCS := $(CSRCS) $(SRC_PATH)/main.c
 DEPS  := $(shell find $(BUILD_PATH) -type f -name '*.d' -print)

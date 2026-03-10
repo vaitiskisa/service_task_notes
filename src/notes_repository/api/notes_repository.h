@@ -18,8 +18,8 @@ RetCode notesRepositoryDestroy(NotesRepository *repo);
 
 RetCode notesRepositoryCreateNote(NotesRepository *repo, const Note *note);
 RetCode notesRepositoryGetNote(NotesRepository *repo, const char *id, Note *out_note);
-RetCode noteRepositoryUpdateNote(NotesRepository *repo, const Note *note);
-RetCode notes_repository_delete_note(NotesRepository *repo, const char *id);
+RetCode notesRepositoryUpdateNote(NotesRepository *repo, const Note *note);
+RetCode notesRepositoryDeleteNote(NotesRepository *repo, const char *id);
 
 RetCode notesRepositoryListAll(NotesRepository *repo, NoteList *out_list);
 RetCode notesRepositoryListByTag(NotesRepository *repo, const char *tag, NoteList *out_list);

@@ -1,4 +1,4 @@
-#include "api/helper.h"
+#include "api/json_utils.h"
 #include "api/notes_repository.h"
 
 #include <dirent.h>
@@ -23,19 +23,42 @@ static inline int pathExists(const char *path)
 
 static RetCode ensureDirectoryExists(const char *path)
 {
-    struct stat st;
+    RETURN_ON_COND(!path, RETCODE_COMMON_NULL_ARG);
 
-    RETURN_ON_COND(!path, RETCODE_COMMON_PARAM_IS_NULL);
-
-    if(stat(path, &st) == 0) {
-        return S_ISDIR(st.st_mode) ? RETCODE_SUCCESS : RETCODE_COMMON_FAIL;
+    if(*path == '\0') {
+        return RETCODE_COMMON_ERROR;
     }
 
-    if(mkdir(path, 0755) == 0) {
-        return RETCODE_SUCCESS;
+    char tmp[PATH_MAX];
+    size_t len = strlen(path);
+    if(len >= sizeof(tmp)) {
+        return RETCODE_COMMON_ERROR;
     }
 
-    return RETCODE_COMMON_FAIL;
+    memcpy(tmp, path, len + 1);
+
+    if(len > 1 && tmp[len - 1] == '/') {
+        tmp[len - 1] = '\0';
+    }
+
+    for(char *p = tmp + 1; *p; ++p) {
+        if(*p != '/') {
+            continue;
+        }
+
+        *p = '\0';
+        if(mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+            *p = '/';
+            return RETCODE_COMMON_ERROR;
+        }
+        *p = '/';
+    }
+
+    if(mkdir(tmp, 0755) != 0 && errno != EEXIST) {
+        return RETCODE_COMMON_ERROR;
+    }
+
+    return RETCODE_OK;
 }
 
 static char *buildNotePath(const NotesRepository *repo, const char *id)
@@ -99,98 +122,72 @@ static char *extractIdFromFilename(const char *filename)
 
 static RetCode writeNoteJsonAtomic(const char *path, const Note *note)
 {
-    RETURN_ON_COND(!path, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!note, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!path, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!note, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     json_t *root = noteToJson(note);
-    RETURN_ON_COND(!root, RETCODE_NOTES_JSON_FAIL);
+    RETURN_ON_COND(!root, RETCODE_NOTES_REPOSITORY_JSON_ERROR);
 
     char *tmp_path = buildTempPath(path);
     if(!tmp_path) {
         json_decref(root);
-        return RETCODE_NOTES_NOMEM;
+        return RETCODE_NOTES_REPOSITORY_NO_MEMORY;
     }
 
     if(json_dump_file(root, tmp_path, JSON_INDENT(2)) != 0) {
         free(tmp_path);
         json_decref(root);
-        return RETCODE_NOTES_IO_FAIL;
+        return RETCODE_NOTES_REPOSITORY_IO_ERROR;
     }
 
     if(rename(tmp_path, path) != 0) {
         unlink(tmp_path);
         free(tmp_path);
         json_decref(root);
-        return RETCODE_NOTES_IO_FAIL;
+        return RETCODE_NOTES_REPOSITORY_IO_ERROR;
     }
 
     free(tmp_path);
     json_decref(root);
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 static RetCode readNoteJsonFile(const char *path, Note *out_note)
 {
-    RETURN_ON_COND(!path, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!out_note, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!path, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!out_note, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     json_error_t error;
     json_t *root = json_load_file(path, 0, &error);
-    RETURN_ON_COND(!root, RETCODE_NOTES_JSON_FAIL);
+    RETURN_ON_COND(!root, RETCODE_NOTES_REPOSITORY_JSON_ERROR);
 
-    noteInit(out_note);
+    RETURN_ON_COND(noteInit(out_note) != RETCODE_OK, RETCODE_COMMON_NO_MEMORY);
 
     if(noteFromJson(out_note, root) != 0) {
         json_decref(root);
-        noteFree(out_note);
-        return RETCODE_NOTES_JSON_FAIL;
+        RETURN_ON_COND(noteFree(out_note) != RETCODE_OK, RETCODE_COMMON_ERROR);
+        return RETCODE_NOTES_REPOSITORY_JSON_ERROR;
     }
 
     json_decref(root);
-    return RETCODE_SUCCESS;
-}
-
-static int noteHasTag(const Note *note, const char *tag)
-{
-    if(!note || !tag) {
-        return 0;
-    }
-
-    for(size_t i = 0; i < note->tag_count; i++) {
-        if(note->tags[i] && strcmp(note->tags[i], tag) == 0) {
-            return 1;
-        }
-    }
-
-    return 0;
+    return RETCODE_OK;
 }
 
 static RetCode noteListAppend(NoteList *list, const Note *note)
 {
-    RETURN_ON_COND(!list, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!note, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!list, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!note, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     Note *new_items = realloc(list->items, sizeof(Note) * (list->count + 1));
-    RETURN_ON_COND(!new_items, RETCODE_NOTES_NOMEM);
+    RETURN_ON_COND(!new_items, RETCODE_NOTES_REPOSITORY_NO_MEMORY);
 
     list->items = new_items;
-    noteInit(&list->items[list->count]);
+    RETURN_ON_COND(noteInit(&list->items[list->count]) != RETCODE_OK, RETCODE_COMMON_NO_MEMORY);
 
-    /*
-     * Deep copy via JSON roundtrip keeps this layer simple and avoids
-     * hand-copying every field.
-     */
-    json_t *json = noteToJson(note);
-    RETURN_ON_COND(!json, RETCODE_NOTES_JSON_FAIL);
+    RETURN_ON_COND(noteClone(&list->items[list->count], note) != RETCODE_OK, RETCODE_NOTES_REPOSITORY_NO_MEMORY);
 
-    if(noteFromJson(&list->items[list->count], json) != 0) {
-        json_decref(json);
-        return RETCODE_NOTES_JSON_FAIL;
-    }
-
-    json_decref(json);
     list->count++;
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 NotesRepository *notesRepositoryCreate(const char *base_dir)
@@ -219,26 +216,26 @@ NotesRepository *notesRepositoryCreate(const char *base_dir)
 
 RetCode notesRepositoryDestroy(NotesRepository *repo)
 {
-    RETURN_ON_COND(!repo, RETCODE_COMMON_NEED_INIT);
+    RETURN_ON_COND(!repo, RETCODE_COMMON_NOT_INITIALIZED);
 
     free(repo->base_dir);
     free(repo);
 
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 RetCode notesRepositoryCreateNote(NotesRepository *repo, const Note *note)
 {
-    RETURN_ON_COND(!repo, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!note, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!note->id, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!repo, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!note, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!note->id, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     char *path = buildNotePath(repo, note->id);
-    RETURN_ON_COND(!path, RETCODE_NOTES_NOMEM);
+    RETURN_ON_COND(!path, RETCODE_NOTES_REPOSITORY_NO_MEMORY);
 
     if(pathExists(path)) {
         free(path);
-        return RETCODE_NOTES_ALREADY_EXISTS;
+        return RETCODE_NOTES_REPOSITORY_ALREADY_EXISTS;
     }
 
     RetCode result = writeNoteJsonAtomic(path, note);
@@ -248,16 +245,16 @@ RetCode notesRepositoryCreateNote(NotesRepository *repo, const Note *note)
 
 RetCode notesRepositoryGetNote(NotesRepository *repo, const char *id, Note *out_note)
 {
-    RETURN_ON_COND(!repo, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!id, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!out_note, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!repo, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!id, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!out_note, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     char *path = buildNotePath(repo, id);
-    RETURN_ON_COND(!path, RETCODE_NOTES_NOMEM);
+    RETURN_ON_COND(!path, RETCODE_NOTES_REPOSITORY_NO_MEMORY);
 
     if(!pathExists(path)) {
         free(path);
-        return RETCODE_NOTES_NOT_FOUND;
+        return RETCODE_NOTES_REPOSITORY_NOT_FOUND;
     }
 
     RetCode result = readNoteJsonFile(path, out_note);
@@ -265,18 +262,18 @@ RetCode notesRepositoryGetNote(NotesRepository *repo, const char *id, Note *out_
     return result;
 }
 
-RetCode noteRepositoryUpdateNote(NotesRepository *repo, const Note *note)
+RetCode notesRepositoryUpdateNote(NotesRepository *repo, const Note *note)
 {
-    RETURN_ON_COND(!repo, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!note, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!note->id, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!repo, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!note, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!note->id, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     char *path = buildNotePath(repo, note->id);
-    RETURN_ON_COND(!path, RETCODE_NOTES_NOMEM);
+    RETURN_ON_COND(!path, RETCODE_NOTES_REPOSITORY_NO_MEMORY);
 
     if(!pathExists(path)) {
         free(path);
-        return RETCODE_NOTES_NOT_FOUND;
+        return RETCODE_NOTES_REPOSITORY_NOT_FOUND;
     }
 
     RetCode result = writeNoteJsonAtomic(path, note);
@@ -284,43 +281,43 @@ RetCode noteRepositoryUpdateNote(NotesRepository *repo, const Note *note)
     return result;
 }
 
-RetCode notes_repository_delete_note(NotesRepository *repo, const char *id)
+RetCode notesRepositoryDeleteNote(NotesRepository *repo, const char *id)
 {
-    RETURN_ON_COND(!repo, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!id, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!repo, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!id, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     char *path = buildNotePath(repo, id);
-    RETURN_ON_COND(!path, RETCODE_NOTES_NOMEM);
+    RETURN_ON_COND(!path, RETCODE_NOTES_REPOSITORY_NO_MEMORY);
 
     if(!pathExists(path)) {
         free(path);
-        return RETCODE_NOTES_NOT_FOUND;
+        return RETCODE_NOTES_REPOSITORY_NOT_FOUND;
     }
 
     if(unlink(path) != 0) {
         free(path);
-        return RETCODE_NOTES_IO_FAIL;
+        return RETCODE_NOTES_REPOSITORY_IO_ERROR;
     }
 
     free(path);
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 RetCode notesRepositoryListAll(NotesRepository *repo, NoteList *out_list)
 {
-    RETURN_ON_COND(!repo, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!out_list, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!repo, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!out_list, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     out_list->items = NULL;
     out_list->count = 0;
 
     DIR *dir = opendir(repo->base_dir);
     if(!dir) {
-        return RETCODE_NOTES_IO_FAIL;
+        return RETCODE_NOTES_REPOSITORY_IO_ERROR;
     }
 
     struct dirent *entry;
-    RetCode result = RETCODE_SUCCESS;
+    RetCode result = RETCODE_OK;
 
     while((entry = readdir(dir)) != NULL) {
         if(!hasJsonExtension(entry->d_name)) {
@@ -329,17 +326,17 @@ RetCode notesRepositoryListAll(NotesRepository *repo, NoteList *out_list)
 
         char *id = extractIdFromFilename(entry->d_name);
         if(!id) {
-            result = RETCODE_NOTES_NOMEM;
+            result = RETCODE_NOTES_REPOSITORY_NO_MEMORY;
             break;
         }
 
         Note note;
-        noteInit(&note);
+        RETURN_ON_COND(noteInit(&note) != RETCODE_OK, RETCODE_COMMON_NO_MEMORY);
 
         result = notesRepositoryGetNote(repo, id, &note);
         free(id);
 
-        if(result != RETCODE_SUCCESS) {
+        if(result != RETCODE_OK) {
             noteFree(&note);
             break;
         }
@@ -347,14 +344,14 @@ RetCode notesRepositoryListAll(NotesRepository *repo, NoteList *out_list)
         result = noteListAppend(out_list, &note);
         noteFree(&note);
 
-        if(result != RETCODE_SUCCESS) {
+        if(result != RETCODE_OK) {
             break;
         }
     }
 
     closedir(dir);
 
-    if(result != RETCODE_SUCCESS) {
+    if(result != RETCODE_OK) {
         noteListFree(out_list);
     }
 
@@ -363,8 +360,8 @@ RetCode notesRepositoryListAll(NotesRepository *repo, NoteList *out_list)
 
 RetCode notesRepositoryListByTag(NotesRepository *repo, const char *tag, NoteList *out_list)
 {
-    RETURN_ON_COND(!repo, RETCODE_NOTES_INVALID_ARG);
-    RETURN_ON_COND(!out_list, RETCODE_NOTES_INVALID_ARG);
+    RETURN_ON_COND(!repo, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
+    RETURN_ON_COND(!out_list, RETCODE_NOTES_REPOSITORY_INVALID_ARG);
 
     if(!tag || *tag == '\0') {
         return notesRepositoryListAll(repo, out_list);
@@ -374,10 +371,10 @@ RetCode notesRepositoryListByTag(NotesRepository *repo, const char *tag, NoteLis
     out_list->count = 0;
 
     DIR *dir = opendir(repo->base_dir);
-    RETURN_ON_COND(!dir, RETCODE_NOTES_IO_FAIL);
+    RETURN_ON_COND(!dir, RETCODE_NOTES_REPOSITORY_IO_ERROR);
 
     struct dirent *entry;
-    RetCode result = RETCODE_SUCCESS;
+    RetCode result = RETCODE_OK;
 
     while((entry = readdir(dir)) != NULL) {
         if(!hasJsonExtension(entry->d_name)) {
@@ -386,17 +383,17 @@ RetCode notesRepositoryListByTag(NotesRepository *repo, const char *tag, NoteLis
 
         char *id = extractIdFromFilename(entry->d_name);
         if(!id) {
-            result = RETCODE_NOTES_NOMEM;
+            result = RETCODE_NOTES_REPOSITORY_NO_MEMORY;
             break;
         }
 
         Note note;
-        noteInit(&note);
+        RETURN_ON_COND(noteInit(&note) != RETCODE_OK, RETCODE_COMMON_NO_MEMORY);
 
         result = notesRepositoryGetNote(repo, id, &note);
         free(id);
 
-        if(result != RETCODE_SUCCESS) {
+        if(result != RETCODE_OK) {
             noteFree(&note);
             break;
         }
@@ -407,14 +404,14 @@ RetCode notesRepositoryListByTag(NotesRepository *repo, const char *tag, NoteLis
 
         noteFree(&note);
 
-        if(result != RETCODE_SUCCESS) {
+        if(result != RETCODE_OK) {
             break;
         }
     }
 
     closedir(dir);
 
-    if(result != RETCODE_SUCCESS) {
+    if(result != RETCODE_OK) {
         noteListFree(out_list);
     }
 
@@ -423,35 +420,37 @@ RetCode notesRepositoryListByTag(NotesRepository *repo, const char *tag, NoteLis
 
 RetCode noteListFree(NoteList *list)
 {
-    RETURN_ON_COND(!list, RETCODE_COMMON_NEED_INIT);
+    RETURN_ON_COND(!list, RETCODE_COMMON_NOT_INITIALIZED);
+
+    RetCode ret_code = RETCODE_OK;
 
     for(size_t i = 0; i < list->count; i++) {
-        noteFree(&list->items[i]);
+        LOG_ON_ERROR(noteFree(&list->items[i]));
     }
 
     free(list->items);
     list->items = NULL;
     list->count = 0;
 
-    return RETCODE_SUCCESS;
+    return ret_code;
 }
 
 const char *notesRepositoryResultStr(RetCode result)
 {
     switch(result) {
-    case RETCODE_SUCCESS:
+    case RETCODE_OK:
         return "ok";
-    case RETCODE_NOTES_INVALID_ARG:
+    case RETCODE_NOTES_REPOSITORY_INVALID_ARG:
         return "invalid argument";
-    case RETCODE_NOTES_NOMEM:
+    case RETCODE_NOTES_REPOSITORY_NO_MEMORY:
         return "out of memory";
-    case RETCODE_NOTES_IO_FAIL:
+    case RETCODE_NOTES_REPOSITORY_IO_ERROR:
         return "io error";
-    case RETCODE_NOTES_JSON_FAIL:
+    case RETCODE_NOTES_REPOSITORY_JSON_ERROR:
         return "json error";
-    case RETCODE_NOTES_NOT_FOUND:
+    case RETCODE_NOTES_REPOSITORY_NOT_FOUND:
         return "not found";
-    case RETCODE_NOTES_ALREADY_EXISTS:
+    case RETCODE_NOTES_REPOSITORY_ALREADY_EXISTS:
         return "already exists";
     default:
         return "unknown";

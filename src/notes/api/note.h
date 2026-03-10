@@ -24,16 +24,19 @@ typedef struct Note {
 RetCode noteInit(Note *note);
 RetCode noteFree(Note *note);
 
-/*
- * Creation helpers
- */
-Note *noteCreate(const char *id, const char *title, const char *content);
+RetCode noteSetId(Note *note, const char *id);
+RetCode noteSetTitle(Note *note, const char *title);
+RetCode noteSetContent(Note *note, const char *content);
 
 /*
  * Tag manipulation
  */
+RetCode noteClearTags(Note *note);
 RetCode noteAddTag(Note *note, const char *tag);
 RetCode noteSetTags(Note *note, char **tags, size_t count);
+
+RetCode noteClone(Note *dest, const Note *src);
+int noteHasTag(const Note *note, const char *tag);
 
 /*
  * JSON conversion
@@ -44,6 +47,7 @@ RetCode noteFromJson(Note *note, const json_t *json);
 /*
  * Validation
  */
-RetCode noteValidate(const Note *note);
+RetCode noteValidateForCreate(const Note *note);
+RetCode noteValidateForUpdate(const Note *note);
 
 #endif

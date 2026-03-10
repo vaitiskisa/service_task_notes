@@ -1,16 +1,11 @@
 #include "api/router.h"
-#include "api/helper.h"
-#include "api/common.h"
+#include "api/json_utils.h"
 
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define ERR_RESPONSE_INVALID_NOTE_ID        400
-#define ERR_RESPONSE_INVALID_PARAM          404
-#define ERR_RESPONSE_METHOD_NOT_ALLOWED     405
-#define ERR_RESPONSE_HANDLER_NOT_CONFIGURED 500
+#include <jansson.h>
 
 #define ERROR_BUFFER_SIZE 256
 
@@ -42,39 +37,6 @@ typedef struct RoutePathInfo {
 struct HttpRouter {
     HttpRouterConfig config;
 };
-
-static HttpResponse makeJsonResponse(unsigned int status_code, const char *json_body)
-{
-    HttpResponse response = { 0 };
-
-    response.status_code = status_code;
-    response.content_type = strdupSafe(HTTP_CONTENT_TYPE_JSON);
-
-    if(!json_body) {
-        json_body = "{}";
-    }
-
-    response.body = strdupSafe(json_body);
-    response.body_size = response.body ? strlen(response.body) : 0;
-
-    return response;
-}
-
-static HttpResponse makeErrorResponse(unsigned int status_code, const char *message)
-{
-    char buffer[ERROR_BUFFER_SIZE];
-
-    if(!message) {
-        message = "Unknown error";
-    }
-
-    /*
-     * Keep this simple for now.
-     * Later, when Jansson is added, this should become proper JSON generation.
-     */
-    snprintf(buffer, sizeof(buffer), "{\"error\":\"%s\"}", message);
-    return makeJsonResponse(status_code, buffer);
-}
 
 static inline int isMethod(const HttpRequest *request, const char *method)
 {
@@ -191,13 +153,13 @@ static char *queryGetParam(const char *query, const char *key)
 
 static RetCode routePathInfoFree(RoutePathInfo *info)
 {
-    RETURN_ON_COND(!info, RETCODE_COMMON_PARAM_IS_NULL);
+    RETURN_ON_COND(!info, RETCODE_COMMON_NULL_ARG);
 
     free(info->note_id);
     info->note_id = NULL;
     info->kind = ROUTE_PATH_INVALID;
 
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 static RoutePathInfo parseNotesPath(const char *path)
@@ -257,25 +219,26 @@ HttpRouter *httpRouterCreate(const HttpRouterConfig *config)
 
 RetCode httpRouterDestroy(HttpRouter *router)
 {
-    RETURN_ON_COND(!router, RETCODE_COMMON_PARAM_IS_NULL);
+    RETURN_ON_COND(!router, RETCODE_COMMON_NULL_ARG);
 
     free(router);
 
-    return RETCODE_SUCCESS;
+    return RETCODE_OK;
 }
 
 static HttpResponse dispatchCollection(HttpRouter *router, const HttpRequest *request)
 {
     if(isMethod(request, "POST")) {
         if(!router->config.create_note) {
-            return makeErrorResponse(ERR_RESPONSE_HANDLER_NOT_CONFIGURED, "Create note handler not configured");
+            return makeErrorResponse(HTTP_STATUS_INTERNAL_ERROR, "Create note handler not configured");
         }
         return router->config.create_note(request, router->config.notes_user_data);
     }
 
     if(isMethod(request, "GET")) {
+        printf("Handling GET /notes with query: %s\n", request->query ? request->query : "(null)");
         if(!router->config.list_notes) {
-            return makeErrorResponse(ERR_RESPONSE_HANDLER_NOT_CONFIGURED, "List notes handler not configured");
+            return makeErrorResponse(HTTP_STATUS_INTERNAL_ERROR, "List notes handler not configured");
         }
 
         char *tag = queryGetParam(request->query, "tag");
@@ -284,37 +247,37 @@ static HttpResponse dispatchCollection(HttpRouter *router, const HttpRequest *re
         return response;
     }
 
-    return makeErrorResponse(ERR_RESPONSE_METHOD_NOT_ALLOWED, "Method not allowed");
+    return makeErrorResponse(HTTP_STATUS_METHOD_NOT_ALLOWED, "Method not allowed");
 }
 
 static HttpResponse dispatchItem(HttpRouter *router, const HttpRequest *request, const char *note_id)
 {
     if(!note_id || *note_id == '\0') {
-        return makeErrorResponse(ERR_RESPONSE_INVALID_NOTE_ID, "Invalid note id");
+        return makeErrorResponse(HTTP_STATUS_BAD_REQUEST, "Invalid note id");
     }
 
     if(isMethod(request, "GET")) {
         if(!router->config.get_note) {
-            return makeErrorResponse(ERR_RESPONSE_HANDLER_NOT_CONFIGURED, "Get note handler not configured");
+            return makeErrorResponse(HTTP_STATUS_INTERNAL_ERROR, "Get note handler not configured");
         }
         return router->config.get_note(request, note_id, router->config.notes_user_data);
     }
 
     if(isMethod(request, "PUT")) {
         if(!router->config.update_note) {
-            return makeErrorResponse(ERR_RESPONSE_HANDLER_NOT_CONFIGURED, "Update note handler not configured");
+            return makeErrorResponse(HTTP_STATUS_INTERNAL_ERROR, "Update note handler not configured");
         }
         return router->config.update_note(request, note_id, router->config.notes_user_data);
     }
 
     if(isMethod(request, "DELETE")) {
         if(!router->config.delete_note) {
-            return makeErrorResponse(ERR_RESPONSE_HANDLER_NOT_CONFIGURED, "Delete note handler not configured");
+            return makeErrorResponse(HTTP_STATUS_INTERNAL_ERROR, "Delete note handler not configured");
         }
         return router->config.delete_note(request, note_id, router->config.notes_user_data);
     }
 
-    return makeErrorResponse(ERR_RESPONSE_METHOD_NOT_ALLOWED, "Method not allowed");
+    return makeErrorResponse(HTTP_STATUS_METHOD_NOT_ALLOWED, "Method not allowed");
 }
 
 HttpResponse httpRouterHandle(const HttpRequest *request, void *user_data)
@@ -322,7 +285,7 @@ HttpResponse httpRouterHandle(const HttpRequest *request, void *user_data)
     HttpRouter *router = (HttpRouter *)user_data;
 
     if(!router || !request || !request->path) {
-        return makeErrorResponse(ERR_RESPONSE_HANDLER_NOT_CONFIGURED, "Router misconfiguration");
+        return makeErrorResponse(HTTP_STATUS_INTERNAL_ERROR, "Router misconfiguration");
     }
 
     RoutePathInfo route = parseNotesPath(request->path);
@@ -339,12 +302,12 @@ HttpResponse httpRouterHandle(const HttpRequest *request, void *user_data)
 
     case ROUTE_PATH_INVALID:
     default:
-        response = makeErrorResponse(ERR_RESPONSE_INVALID_PARAM, "Not found");
+        response = makeErrorResponse(HTTP_STATUS_NOT_FOUND, "Not found");
         break;
     }
 
-    RetCode ret_code = RETCODE_SUCCESS;
-    LOG_ON_ERROR(routePathInfoFree(&route), RETCODE_COMMON_FAIL);
+    RetCode ret_code = RETCODE_OK;
+    LOG_ON_ERROR(routePathInfoFree(&route));
 
     return response;
 }
