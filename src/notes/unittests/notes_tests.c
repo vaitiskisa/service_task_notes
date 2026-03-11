@@ -1,3 +1,7 @@
+/**
+ * @file notes_tests.c
+ * @brief Unit tests for the Note model.
+ */
 #include "api/note.h"
 #include "api/json_utils.h"
 #include "mock_functions.h"
@@ -6,7 +10,10 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-static void test_note_init_and_free(void **state)
+/**
+ * @brief Verifies noteInit sets empty state and noteFree clears fields.
+ */
+static void testNoteInitAndFree(void **state)
 {
     (void)state;
     Note note;
@@ -28,7 +35,10 @@ static void test_note_init_and_free(void **state)
     assert_int_equal(note.tag_count, 0);
 }
 
-static void test_note_setters(void **state)
+/**
+ * @brief Verifies noteSetId/title/content update fields correctly.
+ */
+static void testNoteSetters(void **state)
 {
     (void)state;
     Note note;
@@ -46,7 +56,10 @@ static void test_note_setters(void **state)
     noteFree(&note);
 }
 
-static void test_note_tags_add_clear_has(void **state)
+/**
+ * @brief Verifies adding tags, clearing tags, and tag lookup.
+ */
+static void testNoteTagsAddClearHas(void **state)
 {
     (void)state;
     Note note;
@@ -67,7 +80,10 @@ static void test_note_tags_add_clear_has(void **state)
     noteFree(&note);
 }
 
-static void test_note_set_tags_replaces(void **state)
+/**
+ * @brief Verifies noteSetTags replaces existing tags.
+ */
+static void testNoteSetTagsReplaces(void **state)
 {
     (void)state;
     Note note;
@@ -86,7 +102,10 @@ static void test_note_set_tags_replaces(void **state)
     noteFree(&note);
 }
 
-static void test_note_clone_deep_copy(void **state)
+/**
+ * @brief Verifies noteClone performs a deep copy.
+ */
+static void testNoteCloneDeepCopy(void **state)
 {
     (void)state;
     Note src;
@@ -111,7 +130,10 @@ static void test_note_clone_deep_copy(void **state)
     noteFree(&dst);
 }
 
-static void test_note_json_roundtrip(void **state)
+/**
+ * @brief Verifies noteToJson + noteFromJson preserves fields.
+ */
+static void testNoteJsonRoundtrip(void **state)
 {
     (void)state;
     Note note;
@@ -136,7 +158,10 @@ static void test_note_json_roundtrip(void **state)
     noteFree(&parsed);
 }
 
-static void test_note_from_json_invalid(void **state)
+/**
+ * @brief Verifies invalid JSON schema returns an error.
+ */
+static void testNoteFromJsonInvalid(void **state)
 {
     (void)state;
     Note note;
@@ -150,7 +175,10 @@ static void test_note_from_json_invalid(void **state)
     noteFree(&note);
 }
 
-static void test_note_validation(void **state)
+/**
+ * @brief Verifies validation for create/update rules.
+ */
+static void testNoteValidation(void **state)
 {
     (void)state;
     Note note;
@@ -173,10 +201,10 @@ static void test_note_validation(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_note_init_and_free),      cmocka_unit_test(test_note_setters),
-        cmocka_unit_test(test_note_tags_add_clear_has), cmocka_unit_test(test_note_set_tags_replaces),
-        cmocka_unit_test(test_note_clone_deep_copy),    cmocka_unit_test(test_note_json_roundtrip),
-        cmocka_unit_test(test_note_from_json_invalid),  cmocka_unit_test(test_note_validation),
+        cmocka_unit_test(testNoteInitAndFree),      cmocka_unit_test(testNoteSetters),
+        cmocka_unit_test(testNoteTagsAddClearHas), cmocka_unit_test(testNoteSetTagsReplaces),
+        cmocka_unit_test(testNoteCloneDeepCopy),    cmocka_unit_test(testNoteJsonRoundtrip),
+        cmocka_unit_test(testNoteFromJsonInvalid),  cmocka_unit_test(testNoteValidation),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

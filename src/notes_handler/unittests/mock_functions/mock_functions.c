@@ -1,3 +1,7 @@
+/**
+ * @file mock_functions.c
+ * @brief Mock NotesService implementation for handler tests.
+ */
 #include "mock_functions.h"
 
 #include <jansson.h>

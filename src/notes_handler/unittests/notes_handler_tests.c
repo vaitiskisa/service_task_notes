@@ -1,3 +1,7 @@
+/**
+ * @file notes_handler_tests.c
+ * @brief Unit tests for notes handler endpoints.
+ */
 #include "api/notes_handler.h"
 #include "api/json_utils.h"
 #include "mock_functions.h"
@@ -7,7 +11,10 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-static void test_create_note_success(void **state)
+/**
+ * @brief Verifies successful POST /notes creates a note and returns 201.
+ */
+static void testCreateNoteSuccess(void **state)
 {
     (void)state;
     resetMocks();
@@ -36,7 +43,10 @@ static void test_create_note_success(void **state)
     noteFree(&g_create_out);
 }
 
-static void test_create_note_invalid_body(void **state)
+/**
+ * @brief Verifies invalid POST /notes body returns 400.
+ */
+static void testCreateNoteInvalidBody(void **state)
 {
     (void)state;
     resetMocks();
@@ -56,7 +66,10 @@ static void test_create_note_invalid_body(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_create_note_service_error(void **state)
+/**
+ * @brief Verifies service errors during create map to 500.
+ */
+static void testCreateNoteServiceError(void **state)
 {
     (void)state;
     resetMocks();
@@ -79,7 +92,10 @@ static void test_create_note_service_error(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_list_notes_success(void **state)
+/**
+ * @brief Verifies GET /notes returns list and captures tag filter.
+ */
+static void testListNotesSuccess(void **state)
 {
     (void)state;
     resetMocks();
@@ -106,7 +122,10 @@ static void test_list_notes_success(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_get_note_success(void **state)
+/**
+ * @brief Verifies GET /notes/{id} returns note and captures id.
+ */
+static void testGetNoteSuccess(void **state)
 {
     (void)state;
     resetMocks();
@@ -123,7 +142,10 @@ static void test_get_note_success(void **state)
     noteFree(&g_get_out);
 }
 
-static void test_get_note_service_error(void **state)
+/**
+ * @brief Verifies GET /notes/{id} propagates not-found to 404.
+ */
+static void testGetNoteServiceError(void **state)
 {
     (void)state;
     resetMocks();
@@ -138,7 +160,10 @@ static void test_get_note_service_error(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_update_note_success(void **state)
+/**
+ * @brief Verifies PUT /notes/{id} updates note and returns 200.
+ */
+static void testUpdateNoteSuccess(void **state)
 {
     (void)state;
     resetMocks();
@@ -165,7 +190,10 @@ static void test_update_note_success(void **state)
     noteFree(&g_update_out);
 }
 
-static void test_update_note_invalid_body(void **state)
+/**
+ * @brief Verifies invalid PUT /notes/{id} body returns 400.
+ */
+static void testUpdateNoteInvalidBody(void **state)
 {
     (void)state;
     resetMocks();
@@ -185,7 +213,10 @@ static void test_update_note_invalid_body(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_update_note_service_error(void **state)
+/**
+ * @brief Verifies update service error maps to 500.
+ */
+static void testUpdateNoteServiceError(void **state)
 {
     (void)state;
     resetMocks();
@@ -207,7 +238,10 @@ static void test_update_note_service_error(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_delete_note_success(void **state)
+/**
+ * @brief Verifies DELETE /notes/{id} returns 200 and status payload.
+ */
+static void testDeleteNoteSuccess(void **state)
 {
     (void)state;
     resetMocks();
@@ -229,7 +263,10 @@ static void test_delete_note_success(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_delete_note_service_error(void **state)
+/**
+ * @brief Verifies delete service error maps to 500.
+ */
+static void testDeleteNoteServiceError(void **state)
 {
     (void)state;
     resetMocks();
@@ -244,7 +281,10 @@ static void test_delete_note_service_error(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_list_notes_service_error(void **state)
+/**
+ * @brief Verifies list service error maps to 500.
+ */
+static void testListNotesServiceError(void **state)
 {
     (void)state;
     resetMocks();
@@ -259,7 +299,10 @@ static void test_list_notes_service_error(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_handler_missing_context(void **state)
+/**
+ * @brief Verifies missing handler context returns 500.
+ */
+static void testHandlerMissingContext(void **state)
 {
     (void)state;
     HttpRequest req = { .method = "GET", .url = "/notes", .path = "/notes" };
@@ -269,7 +312,10 @@ static void test_handler_missing_context(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_notes_handler_context_lifecycle(void **state)
+/**
+ * @brief Verifies create/destroy context lifecycle with NULL guard.
+ */
+static void testNotesHandlerContextLifecycle(void **state)
 {
     (void)state;
     assert_null(createNotesHandlerContext(NULL));
@@ -282,13 +328,13 @@ static void test_notes_handler_context_lifecycle(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_create_note_success),       cmocka_unit_test(test_create_note_invalid_body),
-        cmocka_unit_test(test_create_note_service_error), cmocka_unit_test(test_list_notes_success),
-        cmocka_unit_test(test_list_notes_service_error),  cmocka_unit_test(test_get_note_success),
-        cmocka_unit_test(test_get_note_service_error),    cmocka_unit_test(test_update_note_success),
-        cmocka_unit_test(test_update_note_invalid_body),  cmocka_unit_test(test_update_note_service_error),
-        cmocka_unit_test(test_delete_note_success),       cmocka_unit_test(test_delete_note_service_error),
-        cmocka_unit_test(test_handler_missing_context),   cmocka_unit_test(test_notes_handler_context_lifecycle),
+        cmocka_unit_test(testCreateNoteSuccess),       cmocka_unit_test(testCreateNoteInvalidBody),
+        cmocka_unit_test(testCreateNoteServiceError),  cmocka_unit_test(testListNotesSuccess),
+        cmocka_unit_test(testListNotesServiceError),   cmocka_unit_test(testGetNoteSuccess),
+        cmocka_unit_test(testGetNoteServiceError),     cmocka_unit_test(testUpdateNoteSuccess),
+        cmocka_unit_test(testUpdateNoteInvalidBody),   cmocka_unit_test(testUpdateNoteServiceError),
+        cmocka_unit_test(testDeleteNoteSuccess),       cmocka_unit_test(testDeleteNoteServiceError),
+        cmocka_unit_test(testHandlerMissingContext),   cmocka_unit_test(testNotesHandlerContextLifecycle),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

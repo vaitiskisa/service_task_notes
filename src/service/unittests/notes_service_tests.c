@@ -1,3 +1,7 @@
+/**
+ * @file notes_service_tests.c
+ * @brief Unit tests for notes service behavior.
+ */
 #include "api/notes_service.h"
 #include "api/notes_repository.h"
 #include "mock_functions.h"
@@ -7,7 +11,10 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-static void test_service_create_note_success(void **state)
+/**
+ * @brief Verifies create note success path and repository call.
+ */
+static void testServiceCreateNoteSuccess(void **state)
 {
     (void)state;
     resetRepoState();
@@ -33,7 +40,10 @@ static void test_service_create_note_success(void **state)
     notesServiceDestroy(service);
 }
 
-static void test_service_create_note_validation_fails(void **state)
+/**
+ * @brief Verifies validation failures prevent repository calls.
+ */
+static void testServiceCreateNoteValidationFails(void **state)
 {
     (void)state;
     resetRepoState();
@@ -57,7 +67,10 @@ static void test_service_create_note_validation_fails(void **state)
     notesServiceDestroy(service);
 }
 
-static void test_service_get_note_not_found(void **state)
+/**
+ * @brief Verifies get note returns error for missing note.
+ */
+static void testServiceGetNoteNotFound(void **state)
 {
     (void)state;
     resetRepoState();
@@ -77,7 +90,10 @@ static void test_service_get_note_not_found(void **state)
     notesServiceDestroy(service);
 }
 
-static void test_service_update_note_success(void **state)
+/**
+ * @brief Verifies update note success path and id assignment.
+ */
+static void testServiceUpdateNoteSuccess(void **state)
 {
     (void)state;
     resetRepoState();
@@ -101,7 +117,10 @@ static void test_service_update_note_success(void **state)
     notesServiceDestroy(service);
 }
 
-static void test_service_delete_note_success(void **state)
+/**
+ * @brief Verifies delete note success path.
+ */
+static void testServiceDeleteNoteSuccess(void **state)
 {
     (void)state;
     resetRepoState();
@@ -116,7 +135,10 @@ static void test_service_delete_note_success(void **state)
     notesServiceDestroy(service);
 }
 
-static void test_service_list_notes_uses_tag(void **state)
+/**
+ * @brief Verifies list notes uses tag-specific repository call.
+ */
+static void testServiceListNotesUsesTag(void **state)
 {
     (void)state;
     resetRepoState();
@@ -137,7 +159,10 @@ static void test_service_list_notes_uses_tag(void **state)
     notesServiceDestroy(service);
 }
 
-static void test_service_list_notes_all_when_no_tag(void **state)
+/**
+ * @brief Verifies list notes uses list-all when tag is empty.
+ */
+static void testServiceListNotesAllWhenNoTag(void **state)
 {
     (void)state;
     resetRepoState();
@@ -160,13 +185,13 @@ static void test_service_list_notes_all_when_no_tag(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_service_create_note_success),
-        cmocka_unit_test(test_service_create_note_validation_fails),
-        cmocka_unit_test(test_service_get_note_not_found),
-        cmocka_unit_test(test_service_update_note_success),
-        cmocka_unit_test(test_service_delete_note_success),
-        cmocka_unit_test(test_service_list_notes_uses_tag),
-        cmocka_unit_test(test_service_list_notes_all_when_no_tag),
+        cmocka_unit_test(testServiceCreateNoteSuccess),
+        cmocka_unit_test(testServiceCreateNoteValidationFails),
+        cmocka_unit_test(testServiceGetNoteNotFound),
+        cmocka_unit_test(testServiceUpdateNoteSuccess),
+        cmocka_unit_test(testServiceDeleteNoteSuccess),
+        cmocka_unit_test(testServiceListNotesUsesTag),
+        cmocka_unit_test(testServiceListNotesAllWhenNoTag),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

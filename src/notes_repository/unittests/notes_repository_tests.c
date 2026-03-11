@@ -1,3 +1,7 @@
+/**
+ * @file notes_repository_tests.c
+ * @brief Unit tests for notes repository persistence.
+ */
 #include "api/notes_repository.h"
 #include "api/note.h"
 #include "mock_functions.h"
@@ -11,7 +15,10 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-static void test_repository_create_get_update_delete(void **state)
+/**
+ * @brief Verifies create, get, update, delete lifecycle with storage.
+ */
+static void testRepositoryCreateGetUpdateDelete(void **state)
 {
     (void)state;
     char dir_template[] = "/tmp/notes_repo_test_XXXXXX";
@@ -49,7 +56,10 @@ static void test_repository_create_get_update_delete(void **state)
     cleanupDir(dir);
 }
 
-static void test_repository_list_all_and_by_tag(void **state)
+/**
+ * @brief Verifies listing all notes and filtering by tag.
+ */
+static void testRepositoryListAllAndByTag(void **state)
 {
     (void)state;
     char dir_template[] = "/tmp/notes_repo_test_XXXXXX";
@@ -84,7 +94,10 @@ static void test_repository_list_all_and_by_tag(void **state)
     cleanupDir(dir);
 }
 
-static void test_repository_not_found(void **state)
+/**
+ * @brief Verifies not-found is returned for missing notes.
+ */
+static void testRepositoryNotFound(void **state)
 {
     (void)state;
     char dir_template[] = "/tmp/notes_repo_test_XXXXXX";
@@ -104,7 +117,10 @@ static void test_repository_not_found(void **state)
     cleanupDir(dir);
 }
 
-static void test_repository_read_invalid_json(void **state)
+/**
+ * @brief Verifies invalid JSON file returns JSON error.
+ */
+static void testRepositoryReadInvalidJson(void **state)
 {
     (void)state;
     char dir_template[] = "/tmp/notes_repo_test_XXXXXX";
@@ -130,7 +146,10 @@ static void test_repository_read_invalid_json(void **state)
     cleanupDir(dir);
 }
 
-static void test_repository_read_invalid_schema(void **state)
+/**
+ * @brief Verifies invalid schema returns JSON error.
+ */
+static void testRepositoryReadInvalidSchema(void **state)
 {
     (void)state;
     char dir_template[] = "/tmp/notes_repo_test_XXXXXX";
@@ -156,7 +175,10 @@ static void test_repository_read_invalid_schema(void **state)
     cleanupDir(dir);
 }
 
-static void test_repository_write_io_error(void **state)
+/**
+ * @brief Verifies write failures return IO error.
+ */
+static void testRepositoryWriteIoError(void **state)
 {
     (void)state;
     char dir_template[] = "/tmp/notes_repo_test_XXXXXX";
@@ -182,12 +204,12 @@ static void test_repository_write_io_error(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_repository_create_get_update_delete),
-        cmocka_unit_test(test_repository_list_all_and_by_tag),
-        cmocka_unit_test(test_repository_not_found),
-        cmocka_unit_test(test_repository_read_invalid_json),
-        cmocka_unit_test(test_repository_read_invalid_schema),
-        cmocka_unit_test(test_repository_write_io_error),
+        cmocka_unit_test(testRepositoryCreateGetUpdateDelete),
+        cmocka_unit_test(testRepositoryListAllAndByTag),
+        cmocka_unit_test(testRepositoryNotFound),
+        cmocka_unit_test(testRepositoryReadInvalidJson),
+        cmocka_unit_test(testRepositoryReadInvalidSchema),
+        cmocka_unit_test(testRepositoryWriteIoError),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

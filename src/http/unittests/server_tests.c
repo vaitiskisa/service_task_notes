@@ -1,3 +1,7 @@
+/**
+ * @file server_tests.c
+ * @brief Unit tests for HTTP server behavior.
+ */
 #include "api/router.h"
 #include "api/response.h"
 #include "api/server.h"
@@ -176,7 +180,10 @@ static int sendHttpRequest(uint16_t port, const char *method, const char *path, 
     return 0;
 }
 
-void test_server_create_destroy(void **state)
+/**
+ * @brief Creates and destroys a server with valid/invalid configs.
+ */
+void testServerCreateDestroy(void **state)
 {
     (void)state;
     HttpServerConfig invalid = { 0 };
@@ -188,7 +195,10 @@ void test_server_create_destroy(void **state)
     assert_int_equal(httpServerDestroy(server), RETCODE_OK);
 }
 
-void test_server_handles_get_with_query(void **state)
+/**
+ * @brief Handles GET requests and captures query/path/method.
+ */
+void testServerHandlesGetWithQuery(void **state)
 {
     (void)state;
     ServerCapture cap = { 0 };
@@ -215,7 +225,10 @@ void test_server_handles_get_with_query(void **state)
     assert_int_equal(httpServerDestroy(server), RETCODE_OK);
 }
 
-void test_server_handles_put_with_body(void **state)
+/**
+ * @brief Handles PUT requests and captures request body.
+ */
+void testServerHandlesPutWithBody(void **state)
 {
     (void)state;
     ServerCapture cap = { 0 };
@@ -247,7 +260,10 @@ void test_server_handles_put_with_body(void **state)
     assert_int_equal(httpServerDestroy(server), RETCODE_OK);
 }
 
-void test_server_create_invalid_args(void **state)
+/**
+ * @brief Validates create() rejects invalid arguments.
+ */
+void testServerCreateInvalidArgs(void **state)
 {
     (void)state;
     assert_null(httpServerCreate(NULL));
@@ -259,13 +275,19 @@ void test_server_create_invalid_args(void **state)
     assert_null(httpServerCreate(&no_port));
 }
 
-void test_server_start_null(void **state)
+/**
+ * @brief Validates start() rejects NULL server.
+ */
+void testServerStartNull(void **state)
 {
     (void)state;
     assert_int_equal(httpServerStart(NULL), RETCODE_COMMON_NULL_ARG);
 }
 
-void test_server_stop_without_start(void **state)
+/**
+ * @brief Validates stop() fails when not started.
+ */
+void testServerStopWithoutStart(void **state)
 {
     (void)state;
     HttpServerConfig valid = { .port = 8080, .handler = handleNoop, .handler_user_data = NULL };
@@ -276,7 +298,10 @@ void test_server_stop_without_start(void **state)
     assert_int_equal(httpServerDestroy(server), RETCODE_OK);
 }
 
-void test_server_destroy_null(void **state)
+/**
+ * @brief Validates destroy() rejects NULL.
+ */
+void testServerDestroyNull(void **state)
 {
     (void)state;
     assert_int_equal(httpServerDestroy(NULL), RETCODE_COMMON_NOT_INITIALIZED);

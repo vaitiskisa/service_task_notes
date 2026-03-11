@@ -1,3 +1,7 @@
+/**
+ * @file mock_functions.c
+ * @brief Helper implementations for notes unit tests.
+ */
 #include "mock_functions.h"
 
 #include <setjmp.h>

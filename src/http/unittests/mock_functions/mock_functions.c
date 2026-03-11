@@ -1,3 +1,7 @@
+/**
+ * @file mock_functions.c
+ * @brief Mock handlers for HTTP router/server unit tests.
+ */
 #include "api/response.h"
 #include "api/request.h"
 #include "api/json_utils.h"

@@ -1,3 +1,7 @@
+/**
+ * @file utils_tests.c
+ * @brief Unit tests for JSON and response utilities.
+ */
 #include "api/json_utils.h"
 #include "api/response.h"
 
@@ -7,7 +11,10 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-static void test_strdup_safe(void **state)
+/**
+ * @brief Verifies strdupSafe duplicates strings and handles NULL.
+ */
+static void testStrdupSafe(void **state)
 {
     (void)state;
     char *copy = strdupSafe("hello");
@@ -18,7 +25,10 @@ static void test_strdup_safe(void **state)
     assert_null(strdupSafe(NULL));
 }
 
-static void test_make_json_string_response_defaults(void **state)
+/**
+ * @brief Verifies makeJsonStringResponse defaults body to "{}" on NULL.
+ */
+static void testMakeJsonStringResponseDefaults(void **state)
 {
     (void)state;
     HttpResponse resp = makeJsonStringResponse(HTTP_STATUS_OK, NULL);
@@ -31,7 +41,10 @@ static void test_make_json_string_response_defaults(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_make_json_object_response_success(void **state)
+/**
+ * @brief Verifies makeJsonObjectResponse serializes JSON successfully.
+ */
+static void testMakeJsonObjectResponseSuccess(void **state)
 {
     (void)state;
     json_t *obj = json_object();
@@ -55,7 +68,10 @@ static void test_make_json_object_response_success(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_make_error_response(void **state)
+/**
+ * @brief Verifies makeErrorResponse returns JSON error payload.
+ */
+static void testMakeErrorResponse(void **state)
 {
     (void)state;
     HttpResponse resp = makeErrorResponse(HTTP_STATUS_BAD_REQUEST, "bad");
@@ -72,7 +88,10 @@ static void test_make_error_response(void **state)
     httpResponseFree(&resp);
 }
 
-static void test_parse_json_request_body(void **state)
+/**
+ * @brief Verifies parseJsonRequestBody parses valid JSON.
+ */
+static void testParseJsonRequestBody(void **state)
 {
     (void)state;
     const char *body = "{\"a\":1}";
@@ -90,7 +109,10 @@ static void test_parse_json_request_body(void **state)
     json_decref(json);
 }
 
-static void test_parse_json_request_body_invalid(void **state)
+/**
+ * @brief Verifies parseJsonRequestBody rejects invalid JSON.
+ */
+static void testParseJsonRequestBodyInvalid(void **state)
 {
     (void)state;
     HttpRequest req = { 0 };
@@ -102,12 +124,12 @@ static void test_parse_json_request_body_invalid(void **state)
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test(test_strdup_safe),
-        cmocka_unit_test(test_make_json_string_response_defaults),
-        cmocka_unit_test(test_make_json_object_response_success),
-        cmocka_unit_test(test_make_error_response),
-        cmocka_unit_test(test_parse_json_request_body),
-        cmocka_unit_test(test_parse_json_request_body_invalid),
+        cmocka_unit_test(testStrdupSafe),
+        cmocka_unit_test(testMakeJsonStringResponseDefaults),
+        cmocka_unit_test(testMakeJsonObjectResponseSuccess),
+        cmocka_unit_test(testMakeErrorResponse),
+        cmocka_unit_test(testParseJsonRequestBody),
+        cmocka_unit_test(testParseJsonRequestBodyInvalid),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);

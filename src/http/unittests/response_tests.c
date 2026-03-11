@@ -1,4 +1,8 @@
 #include "api/router.h"
+/**
+ * @file response_tests.c
+ * @brief Unit tests for HTTP response helpers.
+ */
 #include "api/response.h"
 #include "api/server.h"
 #include "api/json_utils.h"
@@ -9,7 +13,10 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-void test_response_free_resets_fields(void **state)
+/**
+ * @brief Verifies httpResponseFree clears all fields.
+ */
+void testResponseFreeResetsFields(void **state)
 {
     (void)state;
     HttpResponse response = { 0 };

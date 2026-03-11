@@ -1,3 +1,7 @@
+/**
+ * @file router_tests.c
+ * @brief Unit tests for HTTP router behavior.
+ */
 #include "api/router.h"
 #include "api/response.h"
 #include "api/server.h"
@@ -9,7 +13,10 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
-void test_router_routes_collection_get_with_tag(void **state)
+/**
+ * @brief Routes GET /notes with a tag filter to list handler.
+ */
+void testRouterRoutesCollectionGetWithTag(void **state)
 {
     (void)state;
     HandlerCapture cap;
@@ -42,7 +49,10 @@ void test_router_routes_collection_get_with_tag(void **state)
     assert_int_equal(httpRouterDestroy(router), RETCODE_OK);
 }
 
-void test_router_decodes_tag_value(void **state)
+/**
+ * @brief Decodes URL-encoded tag values.
+ */
+void testRouterDecodesTagValue(void **state)
 {
     (void)state;
     HandlerCapture cap;
@@ -70,7 +80,10 @@ void test_router_decodes_tag_value(void **state)
     assert_int_equal(httpRouterDestroy(router), RETCODE_OK);
 }
 
-void test_router_routes_item_get(void **state)
+/**
+ * @brief Routes GET /notes/{id} to get handler.
+ */
+void testRouterRoutesItemGet(void **state)
 {
     (void)state;
     HandlerCapture cap;
@@ -98,7 +111,10 @@ void test_router_routes_item_get(void **state)
     assert_int_equal(httpRouterDestroy(router), RETCODE_OK);
 }
 
-void test_router_routes_item_put(void **state)
+/**
+ * @brief Routes PUT /notes/{id} to update handler.
+ */
+void testRouterRoutesItemPut(void **state)
 {
     (void)state;
     HandlerCapture cap;
@@ -126,7 +142,10 @@ void test_router_routes_item_put(void **state)
     assert_int_equal(httpRouterDestroy(router), RETCODE_OK);
 }
 
-void test_router_routes_item_delete(void **state)
+/**
+ * @brief Routes DELETE /notes/{id} to delete handler.
+ */
+void testRouterRoutesItemDelete(void **state)
 {
     (void)state;
     HandlerCapture cap;
@@ -154,7 +173,10 @@ void test_router_routes_item_delete(void **state)
     assert_int_equal(httpRouterDestroy(router), RETCODE_OK);
 }
 
-void test_router_rejects_unknown_path(void **state)
+/**
+ * @brief Rejects unknown paths with 404.
+ */
+void testRouterRejectsUnknownPath(void **state)
 {
     (void)state;
     HandlerCapture cap;
@@ -180,7 +202,10 @@ void test_router_rejects_unknown_path(void **state)
     assert_int_equal(httpRouterDestroy(router), RETCODE_OK);
 }
 
-void test_router_missing_handler_returns_500(void **state)
+/**
+ * @brief Missing handler returns 500.
+ */
+void testRouterMissingHandlerReturns500(void **state)
 {
     (void)state;
     HttpRouterConfig config = { 0 };
@@ -199,7 +224,10 @@ void test_router_missing_handler_returns_500(void **state)
     assert_int_equal(httpRouterDestroy(router), RETCODE_OK);
 }
 
-void test_router_method_not_allowed(void **state)
+/**
+ * @brief Unsupported method returns 405.
+ */
+void testRouterMethodNotAllowed(void **state)
 {
     (void)state;
     HandlerCapture cap;
