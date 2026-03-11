@@ -1,3 +1,7 @@
+/**
+ * @file server.c
+ * @brief HTTP server implementation using libmicrohttpd.
+ */
 #include "api/server.h"
 #include "api/request.h"
 #include "api/response.h"
@@ -9,15 +13,22 @@
 #include <stdio.h>
 
 typedef struct RequestContext {
+    /** Accumulated request body buffer. */
     char *body;
+    /** Current size of @ref body. */
     size_t body_size;
+    /** Allocated capacity of @ref body. */
     size_t body_capacity;
 } RequestContext;
 
 struct HttpServer {
+    /** TCP port. */
     uint16_t port;
+    /** Request handler callback. */
     HttpRouteHandler handler;
+    /** User data passed to the handler. */
     void *handler_user_data;
+    /** libmicrohttpd daemon handle. */
     struct MHD_Daemon *daemon;
 };
 
@@ -286,7 +297,9 @@ RetCode httpServerDestroy(HttpServer *server)
 
     RetCode ret_code = RETCODE_OK;
 
-    LOG_ON_ERROR(httpServerStop(server));
+    if(server->daemon) {
+        LOG_ON_ERROR(httpServerStop(server));
+    }
 
     free(server);
 

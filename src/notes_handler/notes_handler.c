@@ -1,3 +1,7 @@
+/**
+ * @file notes_handler.c
+ * @brief Implementation of HTTP handlers for the notes API.
+ */
 #include "api/notes_handler.h"
 #include "api/json_utils.h"
 
@@ -124,12 +128,12 @@ HttpResponse createNoteHandler(const HttpRequest *request, void *userData)
 
     HttpResponse response = makeNoteResponse(HTTP_STATUS_CREATED, &created);
 
-    LOG_ON_ERROR(noteFree(&input));
-    LOG_ON_ERROR(noteFree(&created));
+    noteFree(&input);
+    noteFree(&created);
     return response;
 EXIT:
-    LOG_ON_ERROR(noteFree(&input));
-    LOG_ON_ERROR(noteFree(&created));
+    noteFree(&input);
+    noteFree(&created);
     return mapServiceError(ret_code);
 }
 
@@ -148,7 +152,7 @@ HttpResponse listNotesHandler(const HttpRequest *request, const char *tag, void 
     TO_EXIT_ON_COND(ret_code != RETCODE_OK, RETCODE_COMMON_ERROR);
 
     HttpResponse resp = makeNoteListResponse(&list);
-    LOG_ON_ERROR(noteListFree(&list));
+    noteListFree(&list);
 
     return resp;
 EXIT:
@@ -171,11 +175,11 @@ HttpResponse getNoteHandler(const HttpRequest *request, const char *noteId, void
     TO_EXIT_ON_COND(ret_code != RETCODE_OK, RETCODE_COMMON_ERROR);
 
     HttpResponse resp = makeNoteResponse(HTTP_STATUS_OK, &note);
-    LOG_ON_ERROR(noteFree(&note));
+    noteFree(&note);
 
     return resp;
 EXIT:
-    LOG_ON_ERROR(noteFree(&note));
+    noteFree(&note);
     return mapServiceError(ret_code);
 }
 
@@ -198,13 +202,13 @@ HttpResponse updateNoteHandler(const HttpRequest *request, const char *noteId, v
     TO_EXIT_ON_COND(ret_code != RETCODE_OK, RETCODE_NOTES_SERVICE_VALIDATION);
 
     HttpResponse response = makeNoteResponse(HTTP_STATUS_OK, &updated);
-    LOG_ON_ERROR(noteFree(&input));
-    LOG_ON_ERROR(noteFree(&updated));
+    noteFree(&input);
+    noteFree(&updated);
 
     return response;
 EXIT:
-    LOG_ON_ERROR(noteFree(&input));
-    LOG_ON_ERROR(noteFree(&updated));
+    noteFree(&input);
+    noteFree(&updated);
     return mapServiceError(ret_code);
 }
 

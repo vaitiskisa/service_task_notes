@@ -1,3 +1,7 @@
+/**
+ * @file notes_repository.c
+ * @brief File-based persistence for notes.
+ */
 #include "api/json_utils.h"
 #include "api/notes_repository.h"
 
@@ -165,7 +169,7 @@ static RetCode readNoteJsonFile(const char *path, Note *out_note)
 
     if(noteFromJson(out_note, root) != 0) {
         json_decref(root);
-        RETURN_ON_COND(noteFree(out_note) != RETCODE_OK, RETCODE_COMMON_ERROR);
+        noteFree(out_note);
         return RETCODE_NOTES_REPOSITORY_JSON_ERROR;
     }
 
@@ -418,41 +422,17 @@ RetCode notesRepositoryListByTag(NotesRepository *repo, const char *tag, NoteLis
     return result;
 }
 
-RetCode noteListFree(NoteList *list)
+void noteListFree(NoteList *list)
 {
-    RETURN_ON_COND(!list, RETCODE_COMMON_NOT_INITIALIZED);
-
-    RetCode ret_code = RETCODE_OK;
+    if(!list) {
+        return;
+    }
 
     for(size_t i = 0; i < list->count; i++) {
-        LOG_ON_ERROR(noteFree(&list->items[i]));
+        noteFree(&list->items[i]);
     }
 
     free(list->items);
     list->items = NULL;
     list->count = 0;
-
-    return ret_code;
-}
-
-const char *notesRepositoryResultStr(RetCode result)
-{
-    switch(result) {
-    case RETCODE_OK:
-        return "ok";
-    case RETCODE_NOTES_REPOSITORY_INVALID_ARG:
-        return "invalid argument";
-    case RETCODE_NOTES_REPOSITORY_NO_MEMORY:
-        return "out of memory";
-    case RETCODE_NOTES_REPOSITORY_IO_ERROR:
-        return "io error";
-    case RETCODE_NOTES_REPOSITORY_JSON_ERROR:
-        return "json error";
-    case RETCODE_NOTES_REPOSITORY_NOT_FOUND:
-        return "not found";
-    case RETCODE_NOTES_REPOSITORY_ALREADY_EXISTS:
-        return "already exists";
-    default:
-        return "unknown";
-    }
 }

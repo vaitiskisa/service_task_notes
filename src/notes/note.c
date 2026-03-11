@@ -1,3 +1,7 @@
+/**
+ * @file note.c
+ * @brief Implementation of the Note domain model and helpers.
+ */
 #include "api/note.h"
 #include "api/json_utils.h"
 
@@ -36,10 +40,11 @@ RetCode noteInit(Note *note)
     return RETCODE_OK;
 }
 
-RetCode noteClearTags(Note *note)
+void noteClearTags(Note *note)
 {
-    RETURN_ON_COND(!note, RETCODE_COMMON_NULL_ARG);
-    RETURN_ON_COND_(!note->tags, RETCODE_OK);
+    if(!note || !note->tags) {
+        return;
+    }
 
     for(size_t i = 0; i < note->tag_count; i++) {
         if(note->tags[i]) {
@@ -51,15 +56,13 @@ RetCode noteClearTags(Note *note)
     free(note->tags);
     note->tags = NULL;
     note->tag_count = 0;
-
-    return RETCODE_OK;
 }
 
-RetCode noteFree(Note *note)
+void noteFree(Note *note)
 {
-    RETURN_ON_COND(!note, RETCODE_COMMON_NULL_ARG);
-
-    RetCode ret_code = RETCODE_OK;
+    if(!note) {
+        return;
+    }
 
     if(note->id) {
         free(note->id);
@@ -73,13 +76,12 @@ RetCode noteFree(Note *note)
         free(note->content);
         note->content = NULL;
     }
-    LOG_ON_ERROR(noteClearTags(note));
 
     note->id = NULL;
     note->title = NULL;
     note->content = NULL;
 
-    return ret_code;
+    noteClearTags(note);
 }
 
 RetCode noteSetId(Note *note, const char *id)
@@ -158,16 +160,22 @@ RetCode noteClone(Note *dst, const Note *src)
     RETURN_ON_COND(noteInit(&tmp), RETCODE_COMMON_NO_MEMORY);
 
     TO_EXIT_ON_COND(noteSetId(&tmp, src->id) != RETCODE_OK, RETCODE_COMMON_ERROR);
-    TO_EXIT_ON_COND(noteSetTitle(&tmp, src->title) != RETCODE_OK, RETCODE_COMMON_ERROR);
-    TO_EXIT_ON_COND(noteSetContent(&tmp, src->content) != RETCODE_OK, RETCODE_COMMON_ERROR);
-    TO_EXIT_ON_COND(noteSetTags(&tmp, (char **)src->tags, src->tag_count) != RETCODE_OK, RETCODE_COMMON_ERROR);
+    if(src->title) {
+        TO_EXIT_ON_COND(noteSetTitle(&tmp, src->title) != RETCODE_OK, RETCODE_COMMON_ERROR);
+    }
+    if(src->content) {
+        TO_EXIT_ON_COND(noteSetContent(&tmp, src->content) != RETCODE_OK, RETCODE_COMMON_ERROR);
+    }
+    if(src->tag_count > 0) {
+        TO_EXIT_ON_COND(noteSetTags(&tmp, (char **)src->tags, src->tag_count) != RETCODE_OK, RETCODE_COMMON_ERROR);
+    }
 
-    TO_EXIT_ON_COND(noteFree(dst) != RETCODE_OK, RETCODE_COMMON_ERROR);
+    noteFree(dst);
     *dst = tmp;
 
     return RETCODE_OK;
 EXIT:
-    RETURN_ON_COND(noteFree(&tmp), RETCODE_COMMON_ERROR);
+    noteFree(&tmp);
     return RETCODE_COMMON_ERROR;
 }
 
@@ -234,6 +242,7 @@ RetCode noteFromJson(Note *note, const json_t *json)
     RETURN_ON_COND(!json, RETCODE_COMMON_NULL_ARG);
     RETURN_ON_COND(!json_is_object(json), RETCODE_COMMON_INVALID_ARG);
 
+    const char **tag_values = NULL;
     Note tmp;
     RETURN_ON_COND(noteInit(&tmp), RETCODE_COMMON_NO_MEMORY);
 
@@ -255,7 +264,6 @@ RetCode noteFromJson(Note *note, const json_t *json)
                             noteSetContent(&tmp, json_string_value(content)) != RETCODE_OK,
                     RETCODE_COMMON_ERROR);
 
-    const char **tag_values = NULL;
     if(tags) {
         size_t count = json_array_size(tags);
 
@@ -274,7 +282,7 @@ RetCode noteFromJson(Note *note, const json_t *json)
         free(tag_values);
     }
 
-    TO_EXIT_ON_COND(noteFree(note) != RETCODE_OK, RETCODE_COMMON_ERROR);
+    noteFree(note);
     *note = tmp;
 
     return RETCODE_OK;
@@ -283,8 +291,7 @@ EXIT:
     if(tag_values) {
         free(tag_values);
     }
-
-    RETURN_ON_COND(noteFree(&tmp) != RETCODE_OK, RETCODE_COMMON_ERROR);
+    noteFree(&tmp);
     return RETCODE_COMMON_ERROR;
 }
 

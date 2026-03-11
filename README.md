@@ -1,6 +1,8 @@
 Required libraries:
 sudo apt install libmicrohttpd-dev
 sudo apt install libjansson-dev
+sudo apt install libcmocka-dev
+sudo apt install lcov
 
 Use JQ for prettier printing
 

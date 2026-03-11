@@ -1,9 +1,18 @@
+/**
+ * @file notes_service.c
+ * @brief Implementation of the notes business logic layer.
+ */
 #include "api/notes_service.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#define ID_BUFFER_SIZE 64
+#define UUID_STR_BYTES 16
 
 struct NotesService {
     NotesRepository *repo;
@@ -11,15 +20,30 @@ struct NotesService {
 
 static int generateNoteId(char *buffer, size_t size)
 {
-    if(!buffer || size < 32) {
+    if(!buffer || size < 37) {
         return -1;
     }
 
-    static unsigned long counter = 0;
-    unsigned long current = ++counter;
+    unsigned char bytes[UUID_STR_BYTES];
+    int fd = open("/dev/urandom", O_RDONLY);
+    if(fd < 0) {
+        return -1;
+    }
 
-    int written = snprintf(buffer, size, "%lu", current);
-    return (written > 0 && (size_t)written < size) ? 0 : -1;
+    ssize_t read_len = read(fd, bytes, sizeof(bytes));
+    close(fd);
+    if(read_len != (ssize_t)sizeof(bytes)) {
+        return -1;
+    }
+
+    /* UUIDv4: set version and variant bits */
+    bytes[6] = (bytes[6] & 0x0F) | 0x40;
+    bytes[8] = (bytes[8] & 0x3F) | 0x80;
+
+    int written = snprintf(buffer, size, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+                           bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8],
+                           bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]);
+    return (written == 36) ? 0 : -1;
 }
 
 NotesService *notesServiceCreate(NotesRepository *repo)
@@ -52,31 +76,44 @@ RetCode notesServiceCreateNote(NotesService *service, const Note *input_note, No
     RETURN_ON_COND(!input_note, RETCODE_COMMON_NULL_ARG);
     RETURN_ON_COND(!out_note, RETCODE_COMMON_NULL_ARG);
 
-    RetCode ret_code = RETCODE_OK;
-
     RETURN_ON_COND(noteValidateForCreate(input_note) != RETCODE_OK, RETCODE_NOTES_SERVICE_VALIDATION);
 
+    RetCode ret_code = RETCODE_OK;
     Note note_to_store;
     RETURN_ON_COND(noteInit(&note_to_store), RETCODE_COMMON_NO_MEMORY);
 
-    TO_EXIT_ON_COND(noteClone(&note_to_store, input_note) != RETCODE_OK, RETCODE_NOTES_SERVICE_NO_MEMORY);
+    if(noteClone(&note_to_store, input_note) != RETCODE_OK) {
+        ret_code = RETCODE_NOTES_SERVICE_NO_MEMORY;
+        goto EXIT;
+    }
 
-    char id_buffer[64];
-    TO_EXIT_ON_COND(generateNoteId(id_buffer, sizeof(id_buffer)) != 0 ||
-                            noteSetId(&note_to_store, id_buffer) != RETCODE_OK,
-                    RETCODE_NOTES_SERVICE_NO_MEMORY);
+    char id_buffer[ID_BUFFER_SIZE];
+    if(generateNoteId(id_buffer, sizeof(id_buffer)) != 0 || noteSetId(&note_to_store, id_buffer) != RETCODE_OK) {
+        ret_code = RETCODE_NOTES_SERVICE_NO_MEMORY;
+        goto EXIT;
+    }
 
-    TO_EXIT_ON_COND(notesRepositoryCreateNote(service->repo, &note_to_store) != RETCODE_OK, RETCODE_COMMON_NO_MEMORY);
+    RetCode repo_result = notesRepositoryCreateNote(service->repo, &note_to_store);
+    if(repo_result != RETCODE_OK) {
+        if(repo_result == RETCODE_NOTES_REPOSITORY_ALREADY_EXISTS) {
+            ret_code = RETCODE_NOTES_SERVICE_ALREADY_EXISTS;
+        } else if(repo_result == RETCODE_NOTES_REPOSITORY_NO_MEMORY) {
+            ret_code = RETCODE_NOTES_SERVICE_NO_MEMORY;
+        } else {
+            ret_code = RETCODE_NOTES_SERVICE_STORAGE_ERROR;
+        }
+        goto EXIT;
+    }
 
-    LOG_ON_ERROR(noteFree(out_note));
+    noteFree(out_note);
 
     TO_EXIT_ON_COND(noteClone(out_note, &note_to_store) != RETCODE_OK, RETCODE_NOTES_SERVICE_NO_MEMORY);
 
-    LOG_ON_ERROR(noteFree(&note_to_store));
+    noteFree(&note_to_store);
     return RETCODE_OK;
 EXIT:
-    LOG_ON_ERROR(noteFree(&note_to_store));
-    return RETCODE_COMMON_ERROR;
+    noteFree(&note_to_store);
+    return (ret_code != RETCODE_OK) ? ret_code : RETCODE_COMMON_ERROR;
 }
 
 RetCode notesServiceGetNote(NotesService *service, const char *id, Note *out_note)
@@ -85,9 +122,7 @@ RetCode notesServiceGetNote(NotesService *service, const char *id, Note *out_not
     RETURN_ON_COND(!id, RETCODE_COMMON_NULL_ARG);
     RETURN_ON_COND(!out_note, RETCODE_COMMON_NULL_ARG);
 
-    RetCode ret_code = RETCODE_OK;
-
-    LOG_ON_ERROR(noteFree(out_note));
+    noteFree(out_note);
 
     RETURN_ON_COND(notesRepositoryGetNote(service->repo, id, out_note) != RETCODE_OK, RETCODE_COMMON_ERROR);
 
@@ -101,8 +136,6 @@ RetCode notesServiceUpdateNote(NotesService *service, const char *id, const Note
     RETURN_ON_COND(!input_note, RETCODE_COMMON_NULL_ARG);
     RETURN_ON_COND(!out_note, RETCODE_COMMON_NULL_ARG);
 
-    RetCode ret_code = RETCODE_OK;
-
     RETURN_ON_COND(noteValidateForCreate(input_note) != RETCODE_OK, RETCODE_NOTES_SERVICE_VALIDATION);
 
     Note note_to_store;
@@ -113,14 +146,14 @@ RetCode notesServiceUpdateNote(NotesService *service, const char *id, const Note
 
     TO_EXIT_ON_COND(notesRepositoryUpdateNote(service->repo, &note_to_store) != RETCODE_OK, RETCODE_COMMON_NO_MEMORY);
 
-    LOG_ON_ERROR(noteFree(out_note));
+    noteFree(out_note);
 
     TO_EXIT_ON_COND(noteClone(out_note, &note_to_store) != RETCODE_OK, RETCODE_NOTES_SERVICE_NO_MEMORY);
 
-    LOG_ON_ERROR(noteFree(&note_to_store));
+    noteFree(&note_to_store);
     return RETCODE_OK;
 EXIT:
-    LOG_ON_ERROR(noteFree(&note_to_store));
+    noteFree(&note_to_store);
     return RETCODE_COMMON_ERROR;
 }
 
@@ -148,25 +181,4 @@ RetCode notesServiceListNotes(NotesService *service, const char *tag, NoteList *
     }
 
     return ret_code;
-}
-
-const char *notesServiceResultStr(RetCode result)
-{
-    switch(result) {
-    case RETCODE_OK:
-        return "ok";
-    case RETCODE_NOTES_SERVICE_INVALID_ARG:
-        return "invalid argument";
-    case RETCODE_NOTES_SERVICE_VALIDATION:
-        return "validation error";
-    case RETCODE_NOTES_SERVICE_NO_MEMORY:
-        return "out of memory";
-    case RETCODE_NOTES_SERVICE_NOT_FOUND:
-        return "not found";
-    case RETCODE_NOTES_SERVICE_ALREADY_EXISTS:
-        return "already exists";
-    case RETCODE_NOTES_SERVICE_STORAGE_ERROR:
-    default:
-        return "storage error";
-    }
 }

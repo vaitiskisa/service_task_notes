@@ -1,3 +1,7 @@
+/**
+ * @file router.c
+ * @brief HTTP router implementation for notes endpoints.
+ */
 #include "api/router.h"
 #include "api/json_utils.h"
 

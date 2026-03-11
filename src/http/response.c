@@ -1,3 +1,7 @@
+/**
+ * @file response.c
+ * @brief HTTP response helpers.
+ */
 #include "api/response.h"
 
 #include <stdlib.h>

@@ -1,3 +1,7 @@
+/**
+ * @file json_utils.c
+ * @brief Implementation of JSON and HTTP response helpers.
+ */
 #include "api/json_utils.h"
 
 #include <string.h>
