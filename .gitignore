@@ -2,3 +2,8 @@ service_task_notes.code-workspace
 .vscode/
 build/
 data/
+py_service_task_notes/
+assistant/__pycache__/
+assistant/rag/__pycache__/
+__pycache__/
+.env

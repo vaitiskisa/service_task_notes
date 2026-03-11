@@ -1,0 +1,203 @@
+===== PROMPT 1 =====
+How do I create a note? Give me a curl example and expected response.
+
+=== ANSWER ===
+To create a note, send a POST request to `http://127.0.0.1:8080/notes` with a JSON payload containing the note's title, content, and optional tags.
+
+Here's a `curl` example [SOURCE 1]:
+```bash
+curl -X POST http://127.0.0.1:8080/notes \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Buy groceries",
+    "content": "Milk, eggs, bread"
+  }'
+```
+Note that the `-d` option is truncated in the source, so you may need to add additional fields like tags if required.
+
+The expected response is not provided in the retrieved context [SOURCE 1].
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/examples_cookbook.md | Recipe: Create a Note | 625-1468
+===== PROMPT 1 EXIT =====
+
+
+===== PROMPT 2 =====
+How can I list notes with a specific tag, and how is the tag query decoded?
+
+=== ANSWER ===
+
+To list notes with a specific tag, you can use the `GET /notes` endpoint and provide the tag as a query parameter. For example, to list notes with the tag "work", you would make a GET request to `/notes?tag=work`.
+
+The tag query value is URL-decoded by the router, which means that if you need to use special characters like `+`, it will be treated as a space [SOURCE 1].
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | GET /notes | 1027-2253
+===== PROMPT 2 EXIT =====
+
+
+===== PROMPT 3 =====
+What is the difference between 404 Not found and 405 Method not allowed in this API?
+
+=== ANSWER ===
+In this API, the difference between `404 Not Found` and `405 Method Not Allowed` is as follows:
+
+- `404 Not Found` is returned when an invalid path is requested, such as `/note` or `/notes/{id}/extra` [SOURCE 1].
+- `405 Method Not Allowed` is returned when an unsupported method is used on a valid route, such as using `POST` on `/notes` if only `GET` is supported.
+
+In summary, `404 Not Found` indicates the requested path does not exist, while `405 Method Not Allowed` indicates the requested path exists but the method used is not supported.
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/api.md | Routing and Method Rules | 4268-4710
+===== PROMPT 3 EXIT =====
+
+
+===== PROMPT 4 =====
+How do I update a note and which id wins if id is also present in body?
+
+=== ANSWER ===
+To update a note, use the `PUT /notes/{id}` endpoint. According to the documentation [SOURCE 1], you should provide a non-empty string for `title` and `content`, and optionally an array of strings for `tags`.
+
+If the `id` is also present in the request body, the `id` in the path is considered authoritative [SOURCE 1]. This means that the `id` in the path takes precedence over the `id` in the body.
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | PUT /notes/{id} | 5357-7295
+===== PROMPT 4 EXIT =====
+
+
+===== PROMPT 5 =====
+What does DELETE /notes/{id} return on success?
+
+=== ANSWER ===
+The provided context does not specify what DELETE /notes/{id} returns on success. The context only provides general information about the API, such as its title, version, and description, but does not detail specific endpoint responses [SOURCE 1].
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | API metadata | 0-1026
+===== PROMPT 5 EXIT =====
+
+
+===== PROMPT 6 =====
+What errors can POST /notes return and what usually causes each one?
+
+=== ANSWER ===
+The provided context does not specify the errors that POST /notes can return. However, based on the validation rules [SOURCE 2], we can infer potential errors:
+
+- If `title` is an empty string or not a string, an error is likely to occur.
+- If `content` is an empty string or not a string, an error is likely to occur.
+- If `tags` is provided but not an array of strings, an error is likely to occur.
+
+No specific error messages or causes are mentioned in the context. For a complete list of errors, the full OpenAPI documentation or implementation details would be required.
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | Path /notes | 9862-10021
+[SOURCE 2] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | POST /notes | 2254-4129
+===== PROMPT 6 EXIT =====
+
+
+===== PROMPT 7 =====
+What are the known caveats around missing note ids in GET/PUT/DELETE?
+
+=== ANSWER ===
+Unfortunately, the provided context [SOURCE 1] does not mention caveats around missing note ids in GET/PUT/DELETE operations. The context only provides general information about the API, such as its title, version, and description, but does not discuss specific error handling or edge cases related to note ids. Therefore, I cannot provide a direct answer based on the given context.
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | API metadata | 0-1026
+===== PROMPT 7 EXIT =====
+
+
+===== PROMPT 8 =====
+Give me a quick start workflow: create, list, get, update, delete with minimal examples.
+
+=== ANSWER ===
+
+To get started with the Task Notes Microservice API, follow this quick start workflow:
+
+1. **Create**: Send a POST request to `/notes` with a JSON payload containing the note details. 
+   Example: `POST /notes` with `{"title": "New Note", "content": "This is a new note"}`
+
+2. **List**: Send a GET request to `/notes`.
+   Example: `GET /notes`
+
+3. **Get**: Send a GET request to `/notes/{id}`, replacing `{id}` with the ID of the note you want to retrieve.
+   Example: `GET /notes/123` [SOURCE 1]
+
+4. **Update**: Send a PUT request to `/notes/{id}`, replacing `{id}` with the ID of the note you want to update.
+   Example: `PUT /notes/123` with `{"title": "Updated Note", "content": "This note has been updated"}` [SOURCE 1]
+
+5. **Delete**: Send a DELETE request to `/notes/{id}`, replacing `{id}` with the ID of the note you want to delete.
+   Example: `DELETE /notes/123` [SOURCE 1]
+
+Note that the API returns JSON for both success and error responses [SOURCE 2]. Also, the collection endpoint accepts both `/notes` and `/notes/` in runtime routing, but the canonical path in this spec is `/notes` [SOURCE 2].
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | Path /notes/{id} | 10022-10213
+[SOURCE 2] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | API metadata | 0-1026
+===== PROMPT 8 EXIT =====
+
+
+===== PROMPT 9 =====
+What errors can POST /notes return and what usually causes each one?
+
+=== ANSWER ===
+The provided context does not contain specific information about the errors that `POST /notes` can return. The context only provides a brief description of the `POST /notes` operation, stating that it returns `201` + created note object, but does not detail potential error responses [SOURCE 1].
+
+To provide an accurate answer, more context or information about error handling in the Task Notes Microservice API would be required. 
+
+However, based on common practices in REST API design, a `POST /notes` operation might return errors such as:
+
+- `400 Bad Request`: Invalid request payload or missing required fields.
+- `401 Unauthorized`: Authentication credentials are missing or invalid.
+- `500 Internal Server Error`: Server-side error occurred while processing the request.
+
+But without more specific information from the API documentation or implementation, it's not possible to give a definitive answer. 
+
+If you have any additional context or details, I'd be happy to try and help further!
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | API metadata | 0-1725
+[SOURCE 2] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | Path /notes | 10749-10908
+===== PROMPT 9 EXIT =====
+
+
+===== PROMPT 10 =====
+Give me a quick start workflow: create, list, get, update, delete with minimal examples.
+
+=== ANSWER ===
+Here's a quick start workflow with minimal examples:
+
+1. **Create a note**: Send a `POST` request to `/notes` with a JSON body containing note details.
+   - Example: `POST /notes` with body `{"text": "My note", "tag": "personal"}`
+   - Expected response: `201` with a created note object.
+
+2. **List notes**: Send a `GET` request to `/notes`. Optionally, filter by tag using `?tag=...`.
+   - Example: `GET /notes` or `GET /notes?tag=personal`
+   - Expected response: `200` with an array of note objects.
+
+3. **Get a note**: Send a `GET` request to `/notes/{id}`.
+   - Example: `GET /notes/123` (replace `123` with the actual note ID)
+   - Expected response: `200` with a note object.
+
+4. **Update a note**: Send a `PUT` request to `/notes/{id}` with a JSON body containing updated note details.
+   - Example: `PUT /notes/123` with body `{"text": "Updated note", "tag": "work"}`
+   - Expected response: `200` with an updated note object.
+
+5. **Delete a note**: Send a `DELETE` request to `/notes/{id}`.
+   - Example: `DELETE /notes/123`
+   - Expected response: Typically `204` (No Content) or similar success indicator.
+
+For more detailed information, refer to the API metadata [SOURCE 1] and Path `/notes/{id}` [SOURCE 2] in the OpenAPI specification.
+
+=== SOURCES ===
+
+[SOURCE 1] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | API metadata | 0-1725
+[SOURCE 2] /home/aurijus/develop-personal/service_task_notes/docs/openapi.yaml | Path /notes/{id} | 10909-11100
+===== PROMPT 10 EXIT =====

@@ -1,0 +1,416 @@
+openapi: 3.0.3
+info:
+  title: Task Notes Microservice API
+  version: 1.0.0
+  description: |
+    Quick answers (for chatbot retrieval):
+    - `POST /notes` body: `{"title":"...","content":"...","tags":["..."]}`.
+    - `POST /notes`: `201` created note, `400` invalid note data, `409` note already exists, `500` internal/storage error.
+    - `GET /notes`: `200` note array (`?tag=...` exact match, `+` decodes as space).
+    - `GET /notes/{id}`: `200` note object.
+    - `DELETE /notes/{id}` -> `200` `{"status":"deleted"}`.
+    - `PUT /notes/{id}`: `200` updated note object (path `id` wins over body `id`).
+    - `404 Not found` means unknown route or missing note.
+    - `405 Method not allowed` means route exists but method is unsupported (example: `PUT /notes`).
+    - Caveat: missing note IDs on `GET/PUT/DELETE /notes/{id}` are intended `404`, but current implementation may return `500`.
+
+    REST API for managing task notes.
+
+    This specification is based on the current implementation in this repository.
+
+    Notes for consumers:
+    - Collection endpoint accepts both `/notes` and `/notes/` in runtime routing. The canonical path in this spec is `/notes`.
+    - The API returns JSON for both success and error responses.
+    - For item operations (`GET/PUT/DELETE /notes/{id}`), the intended contract is `404` for missing notes,
+      but the current implementation may return `500` for that scenario due to service-layer error mapping.
+  contact:
+    name: Task Notes Maintainer
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local default server
+
+tags:
+  - name: Notes
+    description: CRUD operations for notes
+
+paths:
+  /notes:
+    get:
+      tags:
+        - Notes
+      summary: List notes
+      description: |
+        Returns all notes by default.
+
+        If `tag` is provided, returns notes containing that exact tag.
+        Query values are URL-decoded by the router (`+` is treated as a space).
+      operationId: listNotes
+      parameters:
+        - $ref: "#/components/parameters/TagQuery"
+      responses:
+        "200":
+          description: List of notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Note"
+              examples:
+                all:
+                  summary: Example notes list
+                  value:
+                    - id: 3cbb11f3-665b-4a99-a857-3ae55d1f0baf
+                      title: Buy groceries
+                      content: Milk, eggs, bread
+                      tags:
+                        - personal
+                        - shopping
+                    - id: 6fd54731-4496-4f73-a4a2-fdcb44f526f6
+                      title: Sprint planning
+                      content: Prepare backlog and priorities
+                      tags:
+                        - work
+                        - planning
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      tags:
+        - Notes
+      summary: Create note
+      description: |
+        Creates a new note and generates its `id` on the server.
+
+        Response and error matrix:
+        - Success: `201` with created note object.
+        - `400`: invalid/missing JSON or invalid note fields.
+        - `409`: note already exists.
+        - `500`: internal/storage error.
+
+        Validation rules:
+        - `title` must be a non-empty string
+        - `content` must be a non-empty string
+        - `tags` is optional; if provided, it must be an array of strings
+
+        Implementation note:
+        - `id` in the request body is accepted by parser but ignored by service create logic.
+        - Empty `tags: []` may be rejected by the current model parser implementation.
+      operationId: createNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteInput"
+            examples:
+              basic:
+                summary: Create note request
+                value:
+                  title: Buy groceries
+                  content: Milk, eggs, bread
+                  tags:
+                    - personal
+                    - shopping
+      responses:
+        "201":
+          description: Created note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+              examples:
+                created:
+                  summary: Created note response
+                  value:
+                    id: 3cbb11f3-665b-4a99-a857-3ae55d1f0baf
+                    title: Buy groceries
+                    content: Milk, eggs, bread
+                    tags:
+                      - personal
+                      - shopping
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /notes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/NoteIdPath"
+
+    get:
+      tags:
+        - Notes
+      summary: Get note by id
+      description: Returns a single note.
+      operationId: getNoteById
+      responses:
+        "200":
+          description: Note found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+              examples:
+                found:
+                  value:
+                    id: 3cbb11f3-665b-4a99-a857-3ae55d1f0baf
+                    title: Buy groceries
+                    content: Milk, eggs, bread
+                    tags:
+                      - personal
+                      - shopping
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          description: |
+            Internal error.
+            Current implementation may also return this for missing IDs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                internal:
+                  value:
+                    error: Internal error
+
+    put:
+      tags:
+        - Notes
+      summary: Update note by id
+      description: |
+        Replaces note fields for the given `id`.
+
+        Validation rules:
+        - `title` must be a non-empty string
+        - `content` must be a non-empty string
+        - `tags` is optional; if provided, it must be an array of strings
+
+        Implementation note:
+        - If `id` is included in body, path `id` is authoritative.
+      operationId: updateNoteById
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NoteInput"
+            examples:
+              update:
+                value:
+                  title: Buy groceries today
+                  content: Milk, eggs, bread, cheese
+                  tags:
+                    - personal
+                    - shopping
+                    - urgent
+      responses:
+        "200":
+          description: Updated note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Note"
+              examples:
+                updated:
+                  value:
+                    id: 3cbb11f3-665b-4a99-a857-3ae55d1f0baf
+                    title: Buy groceries today
+                    content: Milk, eggs, bread, cheese
+                    tags:
+                      - personal
+                      - shopping
+                      - urgent
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          description: |
+            Internal error.
+            Current implementation may also return this for missing IDs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                internal:
+                  value:
+                    error: Internal error
+
+    delete:
+      tags:
+        - Notes
+      summary: Delete note by id
+      description: Deletes the note and returns a status payload.
+      operationId: deleteNoteById
+      responses:
+        "200":
+          description: Deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteStatus"
+              examples:
+                deleted:
+                  value:
+                    status: deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          description: |
+            Internal error.
+            Current implementation may also return this for missing IDs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                internal:
+                  value:
+                    error: Internal error
+
+components:
+  parameters:
+    NoteIdPath:
+      name: id
+      in: path
+      required: true
+      description: Note identifier
+      schema:
+        type: string
+        minLength: 1
+      example: 3cbb11f3-665b-4a99-a857-3ae55d1f0baf
+
+    TagQuery:
+      name: tag
+      in: query
+      required: false
+      description: Exact tag filter
+      schema:
+        type: string
+      example: work
+
+  responses:
+    BadRequest:
+      description: Invalid request body or note data
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            invalid:
+              value:
+                error: Invalid note data
+
+    NotFound:
+      description: Note not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            notFound:
+              value:
+                error: Note not found
+
+    Conflict:
+      description: Note already exists
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            conflict:
+              value:
+                error: Note already exists
+
+    InternalError:
+      description: Internal server/storage error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            internal:
+              value:
+                error: Internal error
+
+  schemas:
+    Note:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - content
+        - tags
+      properties:
+        id:
+          type: string
+          description: Server-generated note id
+          example: 3cbb11f3-665b-4a99-a857-3ae55d1f0baf
+        title:
+          type: string
+          description: Note title
+          example: Buy groceries
+        content:
+          type: string
+          description: Note content
+          example: Milk, eggs, bread
+        tags:
+          type: array
+          description: Note tags
+          items:
+            type: string
+          example:
+            - personal
+            - shopping
+
+    NoteInput:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - content
+      properties:
+        id:
+          type: string
+          description: Optional in payload; ignored for create and overridden by path on update
+        title:
+          type: string
+          minLength: 1
+          description: Note title
+        content:
+          type: string
+          minLength: 1
+          description: Note content
+        tags:
+          type: array
+          description: Optional tags array; if present, all entries must be strings
+          items:
+            type: string
+
+    DeleteStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - deleted
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: Invalid note data
