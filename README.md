@@ -1,6 +1,7 @@
 # Task Notes Microservice + RAG Assistant
 
 This repository contains:
+
 - a C microservice for notes CRUD over HTTP (`/notes`)
 - a Python RAG assistant that answers prompts using repository docs and calls GitHub Models for generation
 - a helper script `run_service.py` to set up and run the full stack
@@ -21,11 +22,12 @@ python3 run_service.py setup
 ```
 
 `setup` performs:
+
 1. Installs apt dependencies
 2. Compiles the C microservice (`make`)
 3. Prepares `.env` (from `.env.example` if needed) and ensures `GITHUB_TOKEN`
 4. Creates Python venv `py_service_task_notes` and installs Python dependencies
-5. Installs Ollama (if missing) and pulls `embeddinggemma` (if missing)
+5. Installs Ollama (if missing) and pulls `all-minilm` (if missing)
 6. Builds documentation index in `assistant/data/chroma_db`
 
 For non-interactive confirmation:
@@ -41,6 +43,7 @@ python3 run_service.py start
 ```
 
 This starts `build/service_task_notes`, then enters an input loop:
+
 - each terminal line is sent to `assistant/main.py ask`
 - the assistant response is printed in the same terminal
 - stop with `Ctrl+C`
@@ -96,7 +99,7 @@ Token generation link used by setup:
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull embeddinggemma
+ollama pull all-minilm
 ```
 
 ### Build RAG index
@@ -176,7 +179,7 @@ curl -X DELETE http://127.0.0.1:8080/notes/{id}
 
 - `Service binary not found`: run `make` or `python3 run_service.py setup`.
 - Assistant fails at retrieval/query: ensure both `index` and `ask/search` use `--persist-dir assistant/data/chroma_db`.
-- Ollama model missing: run `ollama pull embeddinggemma`.
+- Ollama model missing: run `ollama pull all-minilm`.
 - Generation fails with auth error: ensure `GITHUB_TOKEN` exists in `.env`.
 - `index` is slow: this is expected on CPU-only setups; first run is the slowest.
 
@@ -184,6 +187,17 @@ curl -X DELETE http://127.0.0.1:8080/notes/{id}
 
 Ollama stores models in its default model location (depends on your installation mode/user).  
 If disk space layout is a concern, you can relocate the model directory and use a symlink at the OS level.
+
+## Note on failure during Ollama installation
+
+If Ollama fails to install due to some reason, and errors of similar nature start appearing:
+
+```bash
+Error: could not connect to ollama server, run 'ollama serve' to start it
+Command failed with exit code 1.
+```
+
+Please follow the uninstall procedures and then try again: <https://docs.ollama.com/linux#uninstall>
 
 ## Additional Documentation
 

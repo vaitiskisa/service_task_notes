@@ -166,7 +166,7 @@ class RagRetriever:
         self,
         persist_dir: str = "data/chroma_db",
         collection_name: str = "project_docs",
-        embedding_model: str = "embeddinggemma",
+        embedding_model: str = "all-minilm",
     ) -> None:
         self.store = ChromaVectorStore(
             persist_dir=persist_dir,

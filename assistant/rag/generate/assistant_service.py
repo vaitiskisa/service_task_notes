@@ -20,7 +20,7 @@ class RagAssistantService:
         self,
         persist_dir: str = "data/chroma_db",
         collection_name: str = "project_docs",
-        embedding_model: str = "embeddinggemma",
+        embedding_model: str = "all-minilm",
         generation_model: str = "meta/Llama-4-Scout-17B-16E-Instruct",
         generation_timeout: int = 120,
     ) -> None:

@@ -22,7 +22,7 @@ VENV_NAME = "py_service_task_notes"
 VENV_DIR = PROJECT_ROOT / VENV_NAME
 VENV_PYTHON = VENV_DIR / "bin" / "python3"
 ASSISTANT_PERSIST_DIR = PROJECT_ROOT / "assistant" / "data" / "chroma_db"
-OLLAMA_EMBEDDING_MODEL = "embeddinggemma"
+OLLAMA_EMBEDDING_MODEL = "all-minilm"
 OLLAMA_INSTALL_COMMAND = "curl -fsSL https://ollama.com/install.sh | sh"
 GITHUB_TOKEN_KEY = "GITHUB_TOKEN"
 GITHUB_TOKEN_PLACEHOLDER = "YOUR-GITHUB-TOKEN-GOES-HERE"
@@ -371,6 +371,8 @@ def run_index_step(python_bin: str | None) -> bool:
             "index",
             "--persist-dir",
             str(ASSISTANT_PERSIST_DIR),
+            "--embedding-model",
+            OLLAMA_EMBEDDING_MODEL,
         ],
     )
     if not ok:
@@ -398,6 +400,8 @@ def run_setup(auto_confirm: bool) -> int:
 
     setup_env_and_token()
     python_bin = ensure_virtual_environment()
+    if not python_bin:
+        return 1
 
     if not install_ollama_and_embedding_model():
         return 1
@@ -409,11 +413,19 @@ def run_setup(auto_confirm: bool) -> int:
     return 0
 
 
-def resolve_assistant_python() -> str | None:
-    if VENV_PYTHON.exists():
-        return str(VENV_PYTHON)
+def activate_virtual_environment(env: dict[str, str]) -> tuple[dict[str, str], str | None]:
+    if not VENV_PYTHON.exists():
+        return env, None
 
-    return shutil.which("python3")
+    activated_env = dict(env)
+    venv_bin = str(VENV_DIR / "bin")
+    activated_env["VIRTUAL_ENV"] = str(VENV_DIR)
+
+    current_path = activated_env.get("PATH", "")
+    activated_env["PATH"] = f"{venv_bin}:{current_path}" if current_path else venv_bin
+
+    python_bin = shutil.which("python3", path=activated_env["PATH"])
+    return activated_env, python_bin or str(VENV_PYTHON)
 
 def run_assistant_prompt(python_bin: str, prompt: str, env: dict[str, str]) -> bool:
     cmd = [
@@ -422,6 +434,8 @@ def run_assistant_prompt(python_bin: str, prompt: str, env: dict[str, str]) -> b
         "ask",
         "--persist-dir",
         str(ASSISTANT_PERSIST_DIR),
+        "--embedding-model",
+        OLLAMA_EMBEDDING_MODEL,
         prompt,
     ]
 
@@ -474,11 +488,6 @@ def run_start() -> int:
         print(f"Service binary is not executable: {SERVICE_BINARY}")
         return 1
 
-    python_bin = resolve_assistant_python()
-    if not python_bin:
-        print("python3 was not found. Cannot forward prompts to assistant.")
-        return 1
-
     runtime_env = os.environ.copy()
     env_from_file = load_env_file(ENV_FILE)
     if env_from_file:
@@ -486,6 +495,14 @@ def run_start() -> int:
         print(f"Loaded {len(env_from_file)} variable(s) from {ENV_FILE}.")
     else:
         print(f"No variables loaded from {ENV_FILE} (file missing or empty).")
+
+    runtime_env, python_bin = activate_virtual_environment(runtime_env)
+    if not python_bin:
+        print(f"Virtual environment not found: {VENV_PYTHON}")
+        print("Run `python3 run_service.py setup` first.")
+        return 1
+
+    print(f"Activated virtual environment: {VENV_DIR}")
 
     print("Starting microservice...")
     try:
@@ -502,7 +519,8 @@ def run_start() -> int:
     print("Microservice is running.")
     print("Type any prompt to send it to the assistant. Press Ctrl+C to exit.")
     print(
-        f"Assistant command uses: {python_bin} assistant/main.py ask --persist-dir {ASSISTANT_PERSIST_DIR}"
+        f"Assistant command uses: {python_bin} assistant/main.py ask "
+        f"--persist-dir {ASSISTANT_PERSIST_DIR} --embedding-model {OLLAMA_EMBEDDING_MODEL}"
     )
 
     try:

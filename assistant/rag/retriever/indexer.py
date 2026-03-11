@@ -51,7 +51,7 @@ def build_rag_index(
     docs_root: str = "src/docs",
     persist_dir: str = "data/chroma_db",
     collection_name: str = "project_docs",
-    embedding_model: str = "embeddinggemma",
+    embedding_model: str = "all-minilm",
     embedding_batch_size: int = 16,
     embedding_timeout: int = 60,
     db_batch_size: int = 128,
