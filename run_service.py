@@ -215,6 +215,8 @@ def env_has_key(key: str) -> bool:
 def setup_env_and_token() -> None:
     print("\n[3/6] Preparing .env and GitHub token")
     ensure_env_file()
+    print("Generate a GitHub token here:")
+    print(GITHUB_TOKEN_URL)
 
     if not env_has_key(GITHUB_TOKEN_KEY):
         upsert_env_key(GITHUB_TOKEN_KEY, GITHUB_TOKEN_PLACEHOLDER)
