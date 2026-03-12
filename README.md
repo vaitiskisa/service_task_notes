@@ -48,6 +48,48 @@ This starts `build/service_task_notes`, then enters an input loop:
 - the assistant response is printed in the same terminal
 - stop with `Ctrl+C`
 
+## Alternative to `run_service.py` (Manual Run Commands)
+
+Run all commands from the project root directory.
+
+### 1. Build and run the server
+
+```bash
+make
+./build/service_task_notes
+```
+
+### 2. Run unit tests
+
+```bash
+make unit-test
+```
+
+### 3. Run coverage tests
+
+```bash
+make coverage
+```
+
+### 4. Build the chunk vector database
+
+```bash
+python3 assistant/main.py index
+```
+
+### 5. Send a prompt to the assistant
+
+```bash
+export GITHUB_TOKEN="{YOUR-GITHUB-TOKEN-GOES-HERE}"
+python3 assistant/main.py ask "{Prompt}"
+```
+
+### Important notes
+
+- Use `assistant/main.py` (no leading `/`).
+- Keep the same `--persist-dir` value for both `index` and `ask/search` if you override defaults.
+- The server process is blocking; run assistant commands from another terminal while the server is running.
+
 ## Manual Setup (Fallback)
 
 If you prefer doing setup manually:

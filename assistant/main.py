@@ -88,8 +88,6 @@ def main() -> None:
             def on_token(token: str) -> None:
                 print(token, end="", flush=True)
 
-        print("Query:", args.query)
-
         result = service.answer_question(
             query=args.query,
             top_k=args.top_k,
