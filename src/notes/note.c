@@ -270,16 +270,16 @@ RetCode noteFromJson(Note *note, const json_t *json)
         if(count > 0) {
             tag_values = calloc(count, sizeof(char *));
             TO_EXIT_ON_COND(!tag_values, RETCODE_COMMON_NO_MEMORY);
-        }
 
-        for(size_t i = 0; i < count; i++) {
-            json_t *tag = json_array_get(tags, i);
-            TO_EXIT_ON_COND(!json_is_string(tag), RETCODE_COMMON_INVALID_ARG);
-            tag_values[i] = json_string_value(tag);
-        }
+            for(size_t i = 0; i < count; i++) {
+                json_t *tag = json_array_get(tags, i);
+                TO_EXIT_ON_COND(!json_is_string(tag), RETCODE_COMMON_INVALID_ARG);
+                tag_values[i] = json_string_value(tag);
+            }
 
-        TO_EXIT_ON_COND(noteSetTags(&tmp, (char **)tag_values, count) != RETCODE_OK, RETCODE_COMMON_ERROR);
-        free(tag_values);
+            TO_EXIT_ON_COND(noteSetTags(&tmp, (char **)tag_values, count) != RETCODE_OK, RETCODE_COMMON_ERROR);
+            free(tag_values);
+        }
     }
 
     noteFree(note);

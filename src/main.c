@@ -52,10 +52,16 @@ int main(int argc, char *argv[])
     signal(SIGINT, handleSignal);
     signal(SIGTERM, handleSignal);
 
+    NotesRepository *repository = NULL;
+    NotesService *service = NULL;
+    NotesHandlerContext *notes_handler_ctx = NULL;
+    HttpRouter *router = NULL;
+    HttpServer *server = NULL;
+
     /*
      * Repository
      */
-    NotesRepository *repository = notesRepositoryCreate(data_dir);
+    repository = notesRepositoryCreate(data_dir);
     if(!repository) {
         fprintf(stderr, "Failed to create notes repository (dir=%s)\n", data_dir);
         ret_code = RETCODE_COMMON_ERROR;
@@ -65,7 +71,7 @@ int main(int argc, char *argv[])
     /*
      * Service
      */
-    NotesService *service = notesServiceCreate(repository);
+    service = notesServiceCreate(repository);
     if(!service) {
         fprintf(stderr, "Failed to initialize notes service\n");
         ret_code = RETCODE_COMMON_ERROR;
@@ -75,7 +81,7 @@ int main(int argc, char *argv[])
     /*
      * Handler context
      */
-    NotesHandlerContext *notes_handler_ctx = createNotesHandlerContext(service);
+    notes_handler_ctx = createNotesHandlerContext(service);
     if(!notes_handler_ctx) {
         fprintf(stderr, "Failed to create notes handler context\n");
         ret_code = RETCODE_COMMON_ERROR;
@@ -91,7 +97,7 @@ int main(int argc, char *argv[])
                                        .update_note = updateNoteHandler,
                                        .delete_note = deleteNoteHandler,
                                        .notes_user_data = notes_handler_ctx };
-    HttpRouter *router = httpRouterCreate(&router_config);
+    router = httpRouterCreate(&router_config);
     if(!router) {
         fprintf(stderr, "Failed to initialize HTTP router\n");
         ret_code = RETCODE_COMMON_ERROR;
@@ -106,7 +112,7 @@ int main(int argc, char *argv[])
         .handler = httpRouterHandle,
         .handler_user_data = router,
     };
-    HttpServer *server = httpServerCreate(&server_config);
+    server = httpServerCreate(&server_config);
     if(!server) {
         fprintf(stderr, "Failed to create HTTP server\n");
         ret_code = RETCODE_COMMON_ERROR;
